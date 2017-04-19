@@ -22,8 +22,8 @@ class Chromo(object):
 
     @staticmethod
     def mutate(X, parameters):
-        pass
+        return
 
     @staticmethod
     def crossover(X1, X2, parameters):
-        pass
+        return
