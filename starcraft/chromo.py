@@ -12,7 +12,6 @@ SCStrategyChromo requirements:
 # computeActions
 5) The computeActions setup has 1 type of subsection: rule
 6) There is between 2 and 10 rule subsections
-
 """
 
 
@@ -308,13 +307,56 @@ class SquadInitSubsection(Subsection):
 
 class RuleSubsection(Subsection):
     # TODO: Finish me!
+    """A Subsection representing a rule for modifying the buildplan or
+        any squds during gameplay.
+    """
 
-    def __init__(self, conditions, macros):
-        self.conditions = conditions
+    MAX_STAGE = 0  # Keeps track of which stages have been used thusfar
+    UNITS_USED = []  # Keeps track of which units are used in buildplan
+
+    def __init__(self, macros, stage=None, cSupply_min=0, min_min=0, gas_min=0,
+                 no_units_completed_type=None, no_units_completed_min=0):
+        """.
+
+        conditions include:
+        cSupply
+        stage
+        minerals
+        gas
+        noUnitsCompleted
+        """
+
         self.macros = macros
+        self.stage = stage
+        self.cSupply_min = cSupply_min
+        self.min_min = min_min
+        self.gas_min = gas_min
+        self.no_units_completed_type = no_units_completed_type
+        self.no_units_completed_min = no_units_completed_min
 
-    def get_conditions_str(self):
-        pass  # TODO: Write me!
+    def get_subsection_lines(self):
+        """Return a list of strs, each str representing a single line
+        of code in this Subsection.
+
+        :return: list of str; each str corresponds to a line of code
+            in the Subsection. The str will contain no additional
+            white-space (tabs or newlines).
+        """
+
+        stage_str = ""
+        units_type_str = ""
+        if self.stage is not None:
+            stage_str = "stage == {} &&".format(self.stage)
+        if self.no_units_completed_type is not None:
+            # TODO: Finish unit_types_str!
+            units_type_str = "".format()
+        condition_line = [
+                "if ({}min >= {} && gas >= {} &&cSupply >= {} {}) {".format(
+                        stage_str, units_type_str)
+                        ]
+        macro_lines =  [self.macros[i].get_macro_str() 
+                        for i in range(len(self.macros))]
+        return condition_line + macro_lines + ["}"]
 
     @staticmethod
     def get_new_subsection(n, parameters):
