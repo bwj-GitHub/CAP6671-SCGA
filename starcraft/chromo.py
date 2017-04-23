@@ -12,6 +12,25 @@ SCStrategyChromo requirements:
 # computeActions
 5) The computeActions setup has 1 type of subsection: rule
 6) There is between 2 and 10 rule subsections
+
+Special:
+Overlords and Lairs/Hives are automatically built
+Only the following buildings will need to be added more than once to
+the buildplan: Hatchery/Lair/Hive, Extractor(*), Nydus Canal, and
+Creep/Sunken/Spore Colonies. (EXCEPTION?, upgrading faster with multiple
+spires? We will assume that this will never be done.)
+
+There should be no more than 2 Extractors per Hatchery/Lair/Hive;
+
+
+Buildingplan will always start with:
+    buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Spawning_Pool, 5));
+    buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Extractor, 5));
+Buildingplan priority:
+Hatch1 
+
+For Rules:
+only ask for UnitType (building) if training units that require that building
 """
 
 
@@ -345,11 +364,14 @@ class RuleSubsection(Subsection):
 
         stage_str = ""
         units_type_str = ""
+        # stage == ?
         if self.stage is not None:
             stage_str = "stage == {} &&".format(self.stage)
+        # no of units > ?
         if self.no_units_completed_type is not None:
-            # TODO: Finish unit_types_str!
-            units_type_str = "".format()
+            units_type_str = "&& AgentManager::getInstance()->countNoFinishedUnits({}) > {}".format(
+                    self.no_units_completed_type, self.no_units_completed_min)
+        # All other conditions can be 0 if they are not desired
         condition_line = [
                 "if ({}min >= {} && gas >= {} &&cSupply >= {} {}) {".format(
                         stage_str, units_type_str)
@@ -360,8 +382,45 @@ class RuleSubsection(Subsection):
 
     @staticmethod
     def get_new_subsection(n, parameters):
+        # FIXME: This is a mess, and will have issues with crossover...
         # n indicates how many rules have been produced thus-far
-        pass  # TODO: Write me!
+        
+        # Randomly generate conditions:
+        stage = None
+        no_units_completed_type = None
+        no_units_completed = 0
+        r = parameters.RAND.random()
+        if r < .5:
+            stage = RuleSubsection.MAX_STAGE
+            RuleSubsection.MAX_STAGE += 1
+        cSupply = parameters.RAND.randint(0, 15) * 5
+        minerals = parameters.RAND.randint(0, 10) * 50
+        gas = parameters.RAND.randint(0, 10) * 30
+        r = parameters.RAND.random()
+        if r < .5:
+            no_units_completed_type = parameters.RAND.randint(
+                    0, len(RuleSubsection.UNITS_USED) - 1)
+            no_units_completed = parameters.RAND.randint(0, 3)
+
+        # Randomly generate macros:
+        # TODO: condition macros on previous macros?
+        macros = []
+        n_macros = parameters.RAND.randint(1, 10)
+        for _ in range(n_macros):
+            # Macro can be either buildMacro or SquadSetupMacro
+            r = parameters.RAND.random()
+            if r < .5:
+                macro = BuildMacro.get_new_macro(parameters)
+            else:
+                macro = SquadSetupMacro.get_new_macro(parameters)
+            macros.append(macro)
+
+        return RuleSubsection(
+                macros=macros, stage=stage, cSupply_min=cSupply,
+                min_min=minerals, gas_min=gas,
+                no_units_completed_type=no_units_completed_type,
+                no_units_completed_min=no_units_completed)
+        
 
 
 # Macro classes: ##############################################################
@@ -437,9 +496,15 @@ class SCStrategyChromo(Chromo):
     def get_new_chromo(parameters):
         """Return a new, randomly generated, SCStrategyChromo."""
 
+        constructor_section = ConstructorSection.get_new_section(parameters)
+        RuleSubsection.MAX_STAGE = 0
+        RuleSubsection.UNITS_USED = [building for building
+                                     in constructor_section.buildplan]  # TODO: Make set?
+        compute_actions_section = ComputeActionsSection.get_new_section(parameters)
+
         return SCStrategyChromo(parameters.get_new_id(),
-                                ConstructorSection.get_new_section(parameters),
-                                ComputeActionsSection.get_new_section(parameters))
+                                constructor_section,
+                                compute_actions_section)
 
     @staticmethod
     def mutate(X, parameters):
