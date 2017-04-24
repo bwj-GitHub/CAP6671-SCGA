@@ -10,7 +10,7 @@ from random import Random
 class Parameters(object):
     """Holds parameters for various components of a GA."""
 
-    def __init__(self, population_size, max_problem=True,
+    def __init__(self, population_size=10, max_problem=True,
                  selection_type="tournament",
                  rand_gen=Random(), verbosity=0, **kwargs):
         self.N = population_size
@@ -23,6 +23,9 @@ class Parameters(object):
         # Tournament Selection parameters:
         self.TOURNAMENT_SIZE = kwargs.get("tournament_size")
         self.TOURNAMENT_P = kwargs.get("tournament_p")
+
+        # Misc. Parameters:
+        self.BUILDPLAN_CUTOFF = 28  # Don't include items in buildplan with Supply > than this
 
     def get_new_id(self):
         """Return a unique ID for a Chromo.

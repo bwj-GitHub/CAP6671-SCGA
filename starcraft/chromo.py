@@ -384,7 +384,7 @@ class RuleSubsection(Subsection):
     def get_new_subsection(n, parameters):
         # FIXME: This is a mess, and will have issues with crossover...
         # n indicates how many rules have been produced thus-far
-        
+
         # Randomly generate conditions:
         stage = None
         no_units_completed_type = None
