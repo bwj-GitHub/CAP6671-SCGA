@@ -6,6 +6,8 @@ Created on Apr 23, 2017
 
 
 from ga.parameters import Parameters
+from starcraft.units import ZergUnits
+from starcraft.botinit import BuildPlan, SquadInit
 
 
 class Rule(object):
@@ -72,6 +74,21 @@ class Rule(object):
 
         pass
 
+    def _get_macro_lines(self):
+        """Return a list of strs representing self.macros."""
+
+        lines = []
+        for macro in self.macros:
+            # Determine type of macro:
+            if macro[0] == "build":
+                macro_line = "\t" + BuildPlan.get_buildingplan_line(
+                        macro[1], "cSupply")
+            else:
+                macro_line = "\t" + macro[2][0].format(macro[1][0], *macro[2][1:])
+#                 macro_line = "\t{}".format(macro)
+            lines.append(macro_line)
+        return lines
+
     def get_lines(self):
         """Return a list of strs representing this rule."""
 
@@ -81,12 +98,14 @@ class Rule(object):
         # stage == ?
         if self.stage is not None:
             stage_str = "stage == {} && ".format(self.stage)
+
         # check own units?
         if self.unit_reqs is not None:
             for req in self.unit_reqs:
                 units_str += " && AgentManager::getInstance()" \
                         "->countNoFinishedUnits({}) > {}".format(
                         req[0], req[1])
+
         # check enemy units?
         if self.enemy_has is not None:
             for req in self.enemy_has:
@@ -98,9 +117,11 @@ class Rule(object):
                 "if ({}min >= {} && gas >= {}{}{})".format(
                         stage_str, self.minerals, self.gas, units_str, enemy_str),
                         "{"]
-        macro_lines = ["\t<do some stuff>"]
+        macro_lines = self._get_macro_lines()
 #         macro_lines =  [self.macros[i].get_macro_str() 
 #                         for i in range(len(self.macros))]
+        if self.stage is not None:
+            macro_lines.append("\tstage++;")
         return condition_line + macro_lines + ["}"]
 
     def clone(self):
@@ -189,7 +210,91 @@ class Rule(object):
         return enemy_units
 
     @staticmethod
-    def get_new_rule(n, buildplan, units, parameters):
+    def _get_buildplan_macro(buildplan, parameters):
+        """Return a tuple representing a change to the buildplan.
+
+        :return: tuple; the tuple will be of form:
+            (building/tech/upgrade, *Type)
+        """
+
+        # Chose type:
+        m_type = ["building", "tech", "upgrade"][parameters.RAND.randint(0, 2)]
+        m_unit = ZergUnits.next_on_buildplan(buildplan, parameters, type_=m_type)
+        # NOTE: m_unit might still be building, even if m_type is not.
+        return ("build", m_unit)
+
+    @staticmethod
+    def _get_squad_macro(buildplan, squads, parameters):
+        """Return a tuple representing a change to squads.
+        
+        There are 5 types of squad macros:
+        1) removeSetup(unit, no): removes some unit from the squad; can
+            only be used if that unit is ALREADY a part of that squad.
+        2) addSetup(unit, no): adds some unit to the squad; can only be
+            used if that unit's reqs are satisfied.
+        3) setBuildup(true/false): determines if the squad can be set
+            to active; if true, this squad will not activate.
+        4) setPriority(prio): sets the relative importance of this
+            squad, with 1 being the most important. More important
+            squads will be filled first. If 1000, the squad will
+            not be built up.
+        5) setActivePriority(prio): sets the priority of this squad
+            AFTER it has been activated.
+
+        :param buildplan: list; list of buildings that MIGHT be built by
+            this strategy.
+
+        :param squads: list of Squads.
+        """
+
+        # Determine what squad this macro will affect:
+        squad_i = parameters.RAND.randint(0, len(squads)-1)
+
+        # Determine what kind of macro this will be:
+        m_type = parameters.RAND.randint(1, 5)
+        m_parameters = None
+        if m_type == 1:  # removeSetup()
+            s_units, s_counts = zip(*squads[squad_i].units)
+            u = parameters.RAND.randint(0, len(s_units)-1)  # choose unit
+            d_count = parameters.RAND.randint(1, s_counts[u])
+            m_parameters = ("{}->removeSetup({}, {});",
+                            ZergUnits.get_full_name(s_units[u]), d_count)
+
+        elif m_type == 2:  # addSetup()
+            # Add some number of some unit that can be built given buildplan:
+            u_type = parameters.RAND.choice(ZergUnits.get_available_units(buildplan))
+            if u_type not in ["Zerg_Zergling", "Zerg_Hydralisk", "Zerg_Mutalisk",
+                                          "Zerg_Scourge"]:
+                u_count = 1 + parameters.RAND.randint(0, 9) % 8
+            else:
+                u_count = 2 * parameters.RAND.randint(1, 12)
+            m_parameters = ("{}->addSetup({}, {});",
+                            ZergUnits.get_full_name(u_type), u_count)
+
+        elif m_type == 3:   # setBuildup()
+            m_parameters = ("{}->setBuildup({});",
+                            parameters.RAND.choice(["true", "false"]))
+
+        elif m_type == 4:  # setPriority()
+            m_parameters = ("{}->setPriority({});", 
+                            5 + parameters.RAND.randint(0, 200) % 146)
+
+        else:  # type 5
+            # Set to 1 or 1000 with probabilities .25 and .25, respectively;
+            # set to integer between 5 and 150 with probability .5
+            a_prio = 1000
+            r = parameters.RAND.random()
+            if r < .25:
+                a_prio = 1
+            elif r < .75:
+                a_prio = 5 + parameters.RAND.randint(0, 200) % 146  # favor low
+            m_parameters = ("{}->setPriority({});", a_prio)
+
+        return ("squad", (squads[squad_i].name,
+                          squads[squad_i].id), m_parameters)
+
+    @staticmethod
+    def get_new_rule(n, buildplan, units, squads, parameters):
         """Return a new Rule Subsection.
 
         :param n: int; indicates which stage this Rule MIGHT be. stage
@@ -202,16 +307,18 @@ class Rule(object):
             strategy. A unit MIGHT be built if it is added to AT LEAST
             one squad, either in the bot_init section or in a PREVIOUS
             Rule.
+
+        :param squads: list of Squads.
         """
 
         # n indicates potential stage (won't necessarily be used)
         # NOTE: buildplan includes items that MIGHT be built during computeActions
 
+        # Generate condition parameters:
         stage = None
         r = parameters.RAND.random()
         if r < .5:
             stage = n
-
         no_bases = -1 + parameters.RAND.randint(0, 5) % 4  # favor 0/1
         minerals = 50 * parameters.RAND.randint(0, 12)  # 0 - 600
         gas = 30 * parameters.RAND.randint(0, 12)  # 0 - 360
@@ -223,7 +330,16 @@ class Rule(object):
         if r >= .25 and r < .75:
             enemy_has = Rule._get_enemy_has(parameters)
 
-        macros = []  # TODO: generate!
+        # Generate macros:
+        macros = []
+        n_macros = 1 + parameters.RAND.randint(0, 5) % 5  # favor 1
+        for _ in range(n_macros):  # TODO: allow squad macros too
+            # Determine the type of Macro to add (buildplan or squad):
+            r = parameters.RAND.random()
+            if r < .5:  # buildplan macro
+                macros.append(Rule._get_buildplan_macro(buildplan, parameters))
+            else:       # squad macro
+                macros.append(Rule._get_squad_macro(buildplan, squads, parameters))
 
         return Rule(macros, stage, no_bases, minerals, gas,
                     unit_reqs, enemy_has)
@@ -263,13 +379,25 @@ def get_compute_actions_section_lines(class_name="ZergMain", rules=[]):
 
 
 if __name__ == "__main__":
-    R = Rule.get_new_rule(0, buildplan=["UnitTypes::Zerg_Spawning_Pool",
-                                        "UnitTypes::Zerg_Hydralisk_Den",
-                                        "UnitTypes::Zerg_Lair",
-                                        "UnitTypes::Zerg_Spire"],
+    parameters = Parameters()
+    # Create buildplan:
+    BP1 = BuildPlan.get_new_buildplan(parameters)
+    # Print buildplans:
+    lines1 = BP1.get_lines()
+    print("BP1:")
+    for line in lines1:
+        print(line)
+    SI1 = SquadInit.get_new_squad_init(BP1.get_buildplan(), parameters)
+    s_lines = SI1.get_lines()
+    print("\n")
+    for line in s_lines:
+        print(line)
+    # TODO: change units
+    R = Rule.get_new_rule(0, buildplan=BP1.get_buildplan(),
                           units=["Zerg_Zergling", "Zerg_Hydralisk",
                                  "Zerg_Mutalisk"],
-                          parameters=Parameters())
+                          squads=SI1.squads,
+                          parameters=parameters)
     r_lines = R.get_lines()
     for line in r_lines:
         print(line)

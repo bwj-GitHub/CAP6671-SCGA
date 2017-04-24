@@ -95,9 +95,24 @@ class ZergUnits:
             }
 
     @staticmethod
+    def get_full_name(unit):
+        """Return the full name str of the given unit[/tech/upgrade]."""
+
+        # Determine the type of entry (Unit, Tech, Upgrade):
+        if unit in ZergUnits.UPGRADE_REQS.keys():
+            unit_type = "UpgradeTypes::" + unit
+        elif unit in ZergUnits.TECH_REQS.keys():
+            unit_type = "TechTypes::" + unit
+        else:
+            unit_type = "UnitTypes::" + unit
+        return unit_type
+
+    @staticmethod
     def get_available_units(buildplan):
         """Return a list of units that can potentially be trained given
             buildplan.
+        
+        :param buildplan: list; a list of buildings/upgrades/tech.
         """
 
         units = []
@@ -110,5 +125,70 @@ class ZergUnits:
             if to_add is True:
                 units.append(u)
         return units
-            
 
+    @staticmethod
+    def next_on_buildplan(buildplan, parameters, type_=None):
+        """Return a building/tech/upgrade which can be built given
+            buildplan (and that has not already been built).
+
+        Note: if type_ is "tech" or "upgrade" and no tech/upgrade
+        is possible, a building will be returned instead (it is
+        always possible to build at least one building).
+
+        :param buildplan: list; a list of buildings/tech/upgrades.
+
+        :param type_: str; indicates that only a specific type
+            of item should be returned (tech, building, upgrade),
+            or, if None, any type.
+        """
+
+        def check_reqs(item, reqs):
+            if reqs is None:
+                return item
+            else:
+                to_add = True
+                for req in reqs:
+                    if req not in buildplan:
+                        to_add = False
+                if to_add is True:
+                    return item
+            return None
+        
+        missing = []
+        # Create a list of what is missing (and can be built):
+        # check upgrades:
+        if type_ is None or type_ == "upgrade":
+            for u in list(ZergUnits.UPGRADE_REQS.keys()):
+                if u in buildplan:
+                    continue
+                reqs = ZergUnits.UPGRADE_REQS[u]
+                item = check_reqs(u, reqs)
+                if item is not None:
+                    missing.append(item)
+        # check techs:
+        if type_ is None or type_ == "tech":
+            for t in list(ZergUnits.TECH_REQS.keys()):
+                if t in buildplan:
+                    continue
+                reqs = ZergUnits.TECH_REQS[t]
+                item = check_reqs(t, reqs)
+                if item is not None:
+                    missing.append(item)
+        # check buildings (if missing is empty, force this):
+        if type_ is None or type_ == "building" or len(missing) == 0:
+            for b in list(ZergUnits.BUILDING_REQS.keys()):
+                if b in buildplan:
+                    # Some buildings there can be more than one of:
+                    if b not in ["Zerg_Hatchery", "Zerg_Creep_Colony",
+                                 "Zerg_Sunken_Colony", "Zerg_Spore_Colony",
+                                 "Zerg_Extractor"]:
+                        continue
+                # Check that requirements are met:
+                reqs = ZergUnits.BUILDING_REQS[b]
+                item = check_reqs(b, reqs)
+                if item is not None:
+                    missing.append(item)
+
+        # Randomly chose a possible building:
+        M = len(missing)
+        return missing[parameters.RAND.randint(0, M-1)]

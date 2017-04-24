@@ -80,21 +80,6 @@ class BuildPlan(object):
                     self.priorities[i] = req_priority + 2
 
 
-    def get_buildingplan_line(self, unit, cSupply):
-        """Return a str representation to add unit_type to the Buildplan."""
-
-        # Determine the type of entry (Unit, Tech, Upgrade):
-        if unit in ZergUnits.UPGRADE_REQS.keys():
-            unit_type = "UpgradeTypes::" + unit
-        elif unit in ZergUnits.TECH_REQS.keys():
-            unit_type = "TechTypes::" + unit
-        else:
-            unit_type = "UnitTypes::" + unit
-
-        # Form str:
-        s = "buildplan.push_back(BuildplanEntry({}, {}));".format(unit_type, cSupply)
-        return s
-
     def get_buildplan(self):
         """Return a list of buildings and upgrades in this buildplan."""
 
@@ -110,14 +95,14 @@ class BuildPlan(object):
         Zerg_Extractor at 5 Supply.
         """
 
-        lines = [self.get_buildingplan_line("Zerg_Spawning_Pool", 5),
-                 self.get_buildingplan_line("Zerg_Extractor", 5)]  # Build second extractor?
+        lines = [BuildPlan.get_buildingplan_line("Zerg_Spawning_Pool", 5),
+                 BuildPlan.get_buildingplan_line("Zerg_Extractor", 5)]  # Build second extractor?
         buildorder = [(self.priorities[i], self.TYPES[i])
                       for i in range(len(self.priorities))]
         buildorder.sort()
         for i in range(len(buildorder)):
             if buildorder[i][0] <= self.cutoff:
-                lines.append(self.get_buildingplan_line(buildorder[i][1],
+                lines.append(BuildPlan.get_buildingplan_line(buildorder[i][1],
                                                         buildorder[i][0]))
         return lines
 
@@ -138,6 +123,22 @@ class BuildPlan(object):
         p1, p2 = uniform_crossover(p1, p2, parameters.RAND)
 
         return BuildPlan(p1, X1.cutoff), BuildPlan(p2, X2.cutoff)
+
+    @staticmethod
+    def get_buildingplan_line(unit, cSupply):
+        """Return a str representation to add unit_type to the Buildplan."""
+
+        # Determine the type of entry (Unit, Tech, Upgrade):
+        if unit in ZergUnits.UPGRADE_REQS.keys():
+            unit_type = "UpgradeTypes::" + unit
+        elif unit in ZergUnits.TECH_REQS.keys():
+            unit_type = "TechTypes::" + unit
+        else:
+            unit_type = "UnitTypes::" + unit
+
+        # Form str:
+        s = "buildplan.push_back(BuildplanEntry({}, {}));".format(unit_type, cSupply)
+        return s
 
     @staticmethod
     def get_new_buildplan(parameters):
@@ -415,11 +416,14 @@ if __name__ == "__main__":
     BP2 = BuildPlan.get_new_buildplan(parameters)
  
     # Print buildplans:
-#     lines1 = BP1.get_lines()
-#     lines2 = BP2.get_lines()
-#     print("BP1:")
-#     for line in lines1:
-#         print(line)
+    lines1 = BP1.get_lines()
+    lines2 = BP2.get_lines()
+    print("BP1:")
+    for line in lines1:
+        print(line)
+
+    # Test next_on_buildplan:
+    print(ZergUnits.next_on_buildplan(BP1.get_buildplan(), parameters, type_="tech"))
  
 #     # Crossover:
 #     children = BuildPlan.crossover(BP1, BP2, parameters)
@@ -469,7 +473,7 @@ if __name__ == "__main__":
     
     # Test get_bot_init_section_lines:
 #     print("\n")
-    lines = get_bot_init_section_lines(class_name="ZergMain", buildplan=BP1,
-                               squad_init=SI1)
-    for line in lines:
-        print(line)
+#     lines = get_bot_init_section_lines(class_name="ZergMain", buildplan=BP1,
+#                                squad_init=SI1)
+#     for line in lines:
+#         print(line)
