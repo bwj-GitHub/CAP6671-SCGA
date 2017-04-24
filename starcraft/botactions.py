@@ -5,6 +5,9 @@ Created on Apr 23, 2017
 """
 
 
+from ga.parameters import Parameters
+
+
 class Rule(object):
 
     """A Rule specifies a set of Macros to be executed if the rule's 
@@ -70,7 +73,35 @@ class Rule(object):
         pass
 
     def get_lines(self):
-        pass
+        """Return a list of strs representing this rule."""
+
+        stage_str = ""
+        units_str = ""
+        enemy_str = ""
+        # stage == ?
+        if self.stage is not None:
+            stage_str = "stage == {} && ".format(self.stage)
+        # check own units?
+        if self.unit_reqs is not None:
+            for req in self.unit_reqs:
+                units_str += " && AgentManager::getInstance()" \
+                        "->countNoFinishedUnits({}) > {}".format(
+                        req[0], req[1])
+        # check enemy units?
+        if self.enemy_has is not None:
+            for req in self.enemy_has:
+                enemy_str += " && enemyUnits.countUnitsOfType({}) > {}".format(
+                        req[0], req[1])
+
+        # All other conditions can be 0 if they are not desired
+        condition_line = [
+                "if ({}min >= {} && gas >= {}{}{})".format(
+                        stage_str, self.minerals, self.gas, units_str, enemy_str),
+                        "{"]
+        macro_lines = ["\t<do some stuff>"]
+#         macro_lines =  [self.macros[i].get_macro_str() 
+#                         for i in range(len(self.macros))]
+        return condition_line + macro_lines + ["}"]
 
     def clone(self):
         pass
@@ -80,8 +111,36 @@ class Rule(object):
         pass
 
     @staticmethod
-    def _get_unit_reqs(buildplan, parameters):
-        pass
+    def _get_unit_reqs(buildplan, units, parameters):
+        """Return a list of buildings/units to check for.
+
+        Don't check for a building if it is NOT in buildingplan;
+        note that the buildplan SHOULD include items that were
+        added by previous Rules.
+        """
+
+        unit_reqs = []
+        n_units = 1+ parameters.RAND.randint(0, 3) % 3  # favor 1
+        u_track = []  # track units already added
+        # Create n_units unit reqs:
+        for _ in range(n_units):
+            # Check for some building or unti:
+            r = parameters.RAND.random()
+            if r < .5:  # Check for some building:
+                u_type = buildplan[parameters.RAND.randint(0, len(buildplan)-1)]
+                if u_type == "Zerg_Hatchery":
+                    u_count = parameters.RAND.randint(0, 2)
+                else:
+                    u_count = 0  # Not much reason to have multiple of other buildings
+            else:
+                u_type = units[parameters.RAND.randint(0, len(units)-1)]
+                u_count = parameters.RAND.randint(0, 24) % 20  # favor lower counts
+            # Do not add the same unit_t twice:
+            if u_type in u_track:
+                continue
+            u_track.append(u_type)
+            unit_reqs.append((u_type, u_count))
+        return unit_reqs
 
     @staticmethod
     def _e_no(e_type, parameters):
@@ -95,12 +154,12 @@ class Rule(object):
         # Battlecruisers are expensive, and ghosts require micro management
         if e_type in ["UnitTypes::Terran_Battlecruiser",
                       "UnitTypes::Terran_Ghost"]:
-            return parameters.randint(0, 6) % 6  # increase p(0)
+            return parameters.RAND.randint(0, 6) % 6  # increase p(0)
         # At least a handful of marines will almost always be used
         if e_type == "UnitTypes::Terran_Marine":
-            return parameters.randint(10, 30)
+            return parameters.RAND.randint(10, 30)
         # Not sure about other units, let GA take care of that!
-        return parameters.randint(0, 21) % 20  # increase p(0|1)
+        return parameters.RAND.randint(0, 21) % 20  # increase p(0|1)
 
 
     @staticmethod
@@ -116,23 +175,34 @@ class Rule(object):
         enemy_units = []
         e_track = []  # don't check for same enemy_t twice!
         n_units = parameters.RAND.randint(1, 3)
-        for n in range(n_units):
+        for _ in range(n_units):
             # Choose an E_* list to draw from:
             E = [Rule.E_AIR, Rule.E_MECH, Rule.E_LAND][parameters.RAND.randint(0, 2)]
             unit_t = E[parameters.RAND.randint(0, len(E)-1)]
             # Do not add the same unit_t twice:
             if unit_t in e_track:
                 continue
-            else:
-                e_track.append(unit_t)
+            e_track.append(unit_t)
             # Choose a min count of unit_t:
             e_count = Rule._e_no(unit_t, parameters)
-            enemy_units.append(unit_t, e_count)
+            enemy_units.append((unit_t, e_count))
         return enemy_units
 
     @staticmethod
-    def get_new_rule(n, buildplan, parameters):
-        """Return a new Rule Subsection."""
+    def get_new_rule(n, buildplan, units, parameters):
+        """Return a new Rule Subsection.
+
+        :param n: int; indicates which stage this Rule MIGHT be. stage
+            could also be set to Noen for this Rule.
+
+        :param buildplan: list; list of buildings that MIGHT be built by
+            this strategy.
+
+        :param units: list; list of units that MIGHT be built by this
+            strategy. A unit MIGHT be built if it is added to AT LEAST
+            one squad, either in the bot_init section or in a PREVIOUS
+            Rule.
+        """
 
         # n indicates potential stage (won't necessarily be used)
         # NOTE: buildplan includes items that MIGHT be built during computeActions
@@ -149,7 +219,7 @@ class Rule(object):
         enemy_has = None
         r = parameters.RAND.random()
         if r < .5:
-            unit_reqs = Rule._get_unit_reqs(buildplan, parameters)
+            unit_reqs = Rule._get_unit_reqs(buildplan, units, parameters)
         if r >= .25 and r < .75:
             enemy_has = Rule._get_enemy_has(parameters)
 
@@ -159,7 +229,7 @@ class Rule(object):
                     unit_reqs, enemy_has)
 
 
-def get_compute_actions_section_lines(class_name="ZergMain", rules):
+def get_compute_actions_section_lines(class_name="ZergMain", rules=[]):
     """Return a list of lines representing the computeActions method
          of a Strategy class in OpprimoBot.
     """
@@ -191,3 +261,15 @@ def get_compute_actions_section_lines(class_name="ZergMain", rules):
     lines.append("}")
     return lines
 
+
+if __name__ == "__main__":
+    R = Rule.get_new_rule(0, buildplan=["UnitTypes::Zerg_Spawning_Pool",
+                                        "UnitTypes::Zerg_Hydralisk_Den",
+                                        "UnitTypes::Zerg_Lair",
+                                        "UnitTypes::Zerg_Spire"],
+                          units=["Zerg_Zergling", "Zerg_Hydralisk",
+                                 "Zerg_Mutalisk"],
+                          parameters=Parameters())
+    r_lines = R.get_lines()
+    for line in r_lines:
+        print(line)
