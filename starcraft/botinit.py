@@ -538,7 +538,7 @@ if __name__ == "__main__":
     for line in lines:
         print(line)
     print()
-    
+
     C1, C2 = BotInitSection.crossover(BIS, BIS2, parameters)
     print("c1:------")
     lines = C1.get_bot_init_section_lines("ZergMain")

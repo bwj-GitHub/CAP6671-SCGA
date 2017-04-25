@@ -5,9 +5,136 @@ Created on Apr 23, 2017
 """
 
 
+from ga.chromo import single_point_crossover
 from ga.parameters import Parameters
 from starcraft.units import ZergUnits
-from starcraft.botinit import BuildPlan, SquadInit
+from starcraft.botinit import BuildPlan, SquadInit, BotInitSection
+
+
+class ComputeActionsSection(object):
+    """Defines the set of rules to be evaluated and executed during
+        in the computeActions method.
+    """
+
+    def __init__(self, rules):
+        self.rules = rules
+
+    def _correct_stage(self):
+        """Ensure that there is a valid progression of stages in rules."""
+
+        # Sort rules by stage (no stage goes last):
+        self.rules.sort(key=lambda x: x.stage if x.stage is not None else 11)
+
+        # Adjust stages so that they count up from 0:
+        s = 0
+        for i in range(len(self.rules)):
+            stage = self.rules[i].stage
+            if  stage is not None and stage != s:
+                self.rules[i].stage = s
+                s += 1
+            elif stage == s:
+                s += 1
+
+
+    def clone(self):
+        """Return a deep copy of this ComputeActionsSections."""
+
+        rules = []
+        for rule in self.rules:
+            rules.append(rule.clone())
+        return ComputeActionsSection(rules)
+
+    def mutate(self, buildplan, squads, parameters):
+        """Mutate one or more rules in this ComputeActionsSection, and/or
+            insert/remove a new rule.
+        """
+
+        # Determine some number of rules to mutate:
+        n_muts = parameters.randint(1, 3)
+        for _ in range(n_muts):
+            R = len(self.rules)
+            r = parameters.RAND.random()
+            # Determine type of mutation and mutate:
+            if r < .1 and R < 10:   # Add new Rule:
+                self.rules.append(Rule.get_new_rule(R, buildplan,
+                                                    squads, parameters))
+            elif r < .2 and R > 2:  # Remove Rule:
+                ri = parameters.RAND.randint(0, R-1)
+                del self.rules[ri]
+            else:                   # Mutate a Rule:
+                # Select a rule to mutate:
+                ri = parameters.RAND.randint(0, R-1)
+                self.rules[ri].mutate(buildplan, squads, parameters)
+        
+        # Correct stage variables (if necessary):
+        self._correct_stage()
+
+    def get_compute_actions_section_lines(self, class_name="ZergMain"):
+        """Return a list of lines representing the computeActions method
+             of a Strategy class in OpprimoBot.
+        """
+    
+        # Add constant init lines:
+        lines = [
+                 "void {}::computeActions()".format(class_name),
+                 "{",
+                 "\tcomputeActionsBase();",
+                 "\tnoWorkers = AgentManager::getInstance()->countNoBases() * 6 " \
+                        "+ AgentManager::getInstance()->countNoUnits(" \
+                        "UnitTypes::Zerg_Extractor) * 3;",
+                 "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
+                 "\tint min = Broodwar->self()->minerals();",
+                 "\tint gas = Broodwar->self()->gas();",
+                 
+                 "\t// Additional code to observe the enemy, based on code from",
+                 "\t//  OpeningTest fork of OpprimoBot by andertavares:",
+                 "\tSpottedObjectSet& enemyUnits = explorationManager" \
+                    "->getSpottedUnits();",
+                "\n\t//Rules Subsections:"
+                 ]
+    
+        # Add lines for each Rule:
+        for rule in self.rules:
+            lines.extend(["\t"+line for line in rule.get_lines()])
+    
+        # Complete Section and return lines:
+        lines.append("}")
+        return lines
+
+    @staticmethod
+    def crossover(X1, X2, parameters):
+        """Perform single-point crossover on ComputeActionsSection
+            X1 and X2 to produce 2 children.
+        """
+
+        C1 = X1.clone()
+        C2 = X2.clone()
+        print("%%%%%%%%%%")
+        print(C1.rules)
+        print("*")
+        print(C2.rules)
+        C1.rules, C2.rules = single_point_crossover(C1.rules, C2.rules,
+                                                      parameters.RAND)
+        C1._correct_stage()
+        C2._correct_stage()
+        print("___________-_________")
+        print(C1.rules)
+        print("*")
+        print(C2.rules)
+        return C1, C2
+
+    @staticmethod
+    def get_new_compute_actions_section(buildplan, squads, parameters):
+        """Return a new ComputeActionsSection with 2-10 Rules."""
+
+        rules = []
+        n_rules = 2 + parameters.RAND.randint(0, 10) % 9  # favor less
+        stage = 0
+        for _ in range(n_rules):
+            rules.append(Rule.get_new_rule(stage, buildplan, squads, parameters))
+            stage = rules[-1].stage + 1 if rules[-1].stage is not None else stage
+
+        return ComputeActionsSection(rules)
 
 
 class Rule(object):
@@ -67,12 +194,38 @@ class Rule(object):
         self.unit_reqs = unit_reqs
         self.enemy_has = enemy_has
 
-    def correct_rule(self, buildplan, parameters):
+    def correct_rule(self, buildplan, squads, parameters):
         """Remove conditions/macros from the Rule that couldn't possibly
             be evaluated/executed based on buildplan.
+            
+        Macros will be removed if: they reference non-existing squads;
+        add a building whose prerequisites don't exist; adds an existing
+        building.
         """
 
-        pass
+        new_macros = []
+        for macro in self.macros:
+            if macro[0] == "build":
+                if macro[1] in buildplan:
+                    continue
+                # Determine type of build
+                if macro[1] in ZergUnits.BUILDING_REQS.keys():
+                    reqs = ZergUnits.BUILDING_REQS[macro[1]]
+                elif macro[1] in ZergUnits.UPGRADE_REQS.keys():
+                    reqs = ZergUnits.UPGRADE_REQS[macro[1]]
+                else:
+                    reqs = ZergUnits.TECH_REQS[macro[1]]
+                # Check for reqs:
+                if reqs is not None and reqs[0] not in buildplan:
+                    continue
+                else:
+                    new_macros.append(macro)
+            else:  # squad macro
+                if macro[1][1]-1 >= len(squads):  # squad doesn't exist
+                    continue
+                else:
+                    new_macros.append(macro)
+        self.macros = new_macros
 
     def _get_macro_lines(self):
         """Return a list of strs representing self.macros."""
@@ -104,7 +257,7 @@ class Rule(object):
             for req in self.unit_reqs:
                 units_str += " && AgentManager::getInstance()" \
                         "->countNoFinishedUnits({}) > {}".format(
-                        req[0], req[1])
+                        ZergUnits.get_full_name(req[0]), req[1])
 
         # check enemy units?
         if self.enemy_has is not None:
@@ -114,8 +267,10 @@ class Rule(object):
 
         # All other conditions can be 0 if they are not desired
         condition_line = [
-                "if ({}min >= {} && gas >= {}{}{})".format(
-                        stage_str, self.minerals, self.gas, units_str, enemy_str),
+                "if ({}AgentManager::getInstance()->countNoBases() > {} " \
+                        "&& min >= {} && gas >= {}{}{})".format(
+                        stage_str, self.no_bases, self.minerals, self.gas,
+                        units_str, enemy_str),
                         "{"]
         macro_lines = self._get_macro_lines()
 #         macro_lines =  [self.macros[i].get_macro_str() 
@@ -125,11 +280,70 @@ class Rule(object):
         return condition_line + macro_lines + ["}"]
 
     def clone(self):
-        pass
+        u_reqs = self.unit_reqs.copy() if self.unit_reqs is not None else None
+        e_has = self.enemy_has.copy() if self.enemy_has is not None else None
+        return Rule(self.macros.copy(), self.stage, self.no_bases,
+                    self.minerals, self.gas,
+                    u_reqs, e_has)
+
+    def _mutate_conditions(self, parameters):
+        """Randomly change the conditions of this Rule.
+        
+        Changes can be to minerals, gas, no_bases, and/or enemy_has
+        """
+
+        # TODO: do something more... sensical?
+        ri = parameters.RAND.randint(0, 100)
+        if ri % 2 == 0:
+            self.minerals += 25 * parameters.RAND.randint(-5, 5)
+        else:
+            self.enemy_has = self._get_enemy_has(parameters, 1)
+        if ri < 20:
+            self.gas += 15 * parameters.RAND.randint(-5, 5)
+        if ri % 20 == 0:
+            self.no_bases += parameters.RAND.randint(-1, 1)
+
+    def mutate(self, buildplan, squads, parameters):
+        """Randomly change the parameters of this rule or its macros.
+
+        Mutation types include:
+        1) Insert a new macro
+        2) Remove an existing macro
+        3) change conditions
+        """
+
+        # Chose mutation type:
+        r = parameters.RAND.random()
+        if r < .165:        # Insert new (buildplan) macro
+            self.macros.append(Rule._get_buildplan_macro(buildplan, parameters))
+        elif r < .33:       # Insert new (squad) macro
+            self.macros.append(Rule._get_squad_macro(buildplan, squads, parameters))
+        elif r < .66 and len(self.macros) > 1:  # Remove existing macro
+            # chose macro to delete:
+            mi = parameters.RAND.randint(0, len(self.macros)-1)
+            del self.macros[mi]
+        else:               # Change conditions
+            self._mutate_conditions(parameters)
+
+    # NOTE: Crossover will not be performed on individual Rules
+#     @staticmethod
+#     def crossover(R1, R2, parameters):
+#         """."""
+# 
+#         pass
 
     @staticmethod
-    def crossover(R1, R2, parameters):
-        pass
+    def _u_no_(u_type, parameters):
+        """Return an appropriate count for u_type."""
+
+        # Expensive units, not likely to have more than 6
+        if u_type in ["Zerg_Ultralisk", "Zerg_Queen", "Zerg_Defiler"]:
+            return parameters.RAND.randint(0, 6) % 6
+        # Very cheap unit, likely to have many of these
+        if u_type == "Zerg_Zergling":
+            return parameters.RAND.randint(10, 30)
+        # Not sure about other units, let GA take care of that!
+        return parameters.RAND.randint(0, 21) % 20
 
     @staticmethod
     def _get_unit_reqs(buildplan, units, parameters):
@@ -145,24 +359,24 @@ class Rule(object):
         u_track = []  # track units already added
         # Create n_units unit reqs:
         for _ in range(n_units):
-            # Check for some building or unti:
+            # Check for some building or unit:
             r = parameters.RAND.random()
-            if r < .5:  # Check for some building:
+            if r < .5:  # check for some building:
                 u_type = buildplan[parameters.RAND.randint(0, len(buildplan)-1)]
                 if u_type == "Zerg_Hatchery":
                     u_count = parameters.RAND.randint(0, 2)
                 else:
                     u_count = 0  # Not much reason to have multiple of other buildings
-            else:
+            else:       # check for some unit:
                 u_type = units[parameters.RAND.randint(0, len(units)-1)]
-                u_count = parameters.RAND.randint(0, 24) % 20  # favor lower counts
+                u_count = Rule._u_no_(u_type, parameters)
             # Do not add the same unit_t twice:
             if u_type in u_track:
                 continue
             u_track.append(u_type)
             unit_reqs.append((u_type, u_count))
         return unit_reqs
-
+    
     @staticmethod
     def _e_no(e_type, parameters):
         """Return an appropriate count for e_type.
@@ -182,9 +396,8 @@ class Rule(object):
         # Not sure about other units, let GA take care of that!
         return parameters.RAND.randint(0, 21) % 20  # increase p(0|1)
 
-
     @staticmethod
-    def _get_enemy_has(parameters):
+    def _get_enemy_has(parameters, n=None):
         """Return a list of enemy units to check for.
 
         :return: list; a list of tuples containing a str representing
@@ -195,7 +408,7 @@ class Rule(object):
         # Check for 1-3 enemy units (0 will occur if this not called)
         enemy_units = []
         e_track = []  # don't check for same enemy_t twice!
-        n_units = parameters.RAND.randint(1, 3)
+        n_units = n if n is not None else parameters.RAND.randint(1, 3)
         for _ in range(n_units):
             # Choose an E_* list to draw from:
             E = [Rule.E_AIR, Rule.E_MECH, Rule.E_LAND][parameters.RAND.randint(0, 2)]
@@ -251,7 +464,7 @@ class Rule(object):
         squad_i = parameters.RAND.randint(0, len(squads)-1)
 
         # Determine what kind of macro this will be:
-        m_type = parameters.RAND.randint(1, 5)
+        m_type = 1 + parameters.RAND.randint(1, 5) % 5  # favor 1 (addSetup)
         m_parameters = None
         if m_type == 1:  # removeSetup()
             s_units, s_counts = zip(*squads[squad_i].units)
@@ -288,17 +501,17 @@ class Rule(object):
                 a_prio = 1
             elif r < .75:
                 a_prio = 5 + parameters.RAND.randint(0, 200) % 146  # favor low
-            m_parameters = ("{}->setPriority({});", a_prio)
+            m_parameters = ("{}->setActivePriority({});", a_prio)
 
         return ("squad", (squads[squad_i].name,
                           squads[squad_i].id), m_parameters)
 
     @staticmethod
-    def get_new_rule(n, buildplan, units, squads, parameters):
+    def get_new_rule(n, buildplan, squads, parameters):
         """Return a new Rule Subsection.
 
         :param n: int; indicates which stage this Rule MIGHT be. stage
-            could also be set to Noen for this Rule.
+            could also be set to None for this Rule.
 
         :param buildplan: list; list of buildings that MIGHT be built by
             this strategy.
@@ -315,6 +528,7 @@ class Rule(object):
         # NOTE: buildplan includes items that MIGHT be built during computeActions
 
         # Generate condition parameters:
+        units = SquadInit.get_units(squads)
         stage = None
         r = parameters.RAND.random()
         if r < .5:
@@ -325,79 +539,72 @@ class Rule(object):
         unit_reqs = None
         enemy_has = None
         r = parameters.RAND.random()
-        if r < .5:
+        if r < .5:                  # check for finished units
             unit_reqs = Rule._get_unit_reqs(buildplan, units, parameters)
-        if r >= .25 and r < .75:
+        if r >= .25 and r < .75:    # check enemy's units
             enemy_has = Rule._get_enemy_has(parameters)
 
         # Generate macros:
         macros = []
         n_macros = 1 + parameters.RAND.randint(0, 5) % 5  # favor 1
-        for _ in range(n_macros):  # TODO: allow squad macros too
+        for _ in range(n_macros):
             # Determine the type of Macro to add (buildplan or squad):
             r = parameters.RAND.random()
             if r < .5:  # buildplan macro
                 macros.append(Rule._get_buildplan_macro(buildplan, parameters))
             else:       # squad macro
                 macros.append(Rule._get_squad_macro(buildplan, squads, parameters))
-
+            # TODO: update buildplan?
         return Rule(macros, stage, no_bases, minerals, gas,
                     unit_reqs, enemy_has)
 
 
-def get_compute_actions_section_lines(class_name="ZergMain", rules=[]):
-    """Return a list of lines representing the computeActions method
-         of a Strategy class in OpprimoBot.
-    """
-
-    # Add constant init lines:
-    lines = [
-             "void {}::computeActions()".format(class_name),
-             "{",
-             "\tcomputeActionsBase();",
-             "\tnoWorkers = AgentManager::getInstance()->countNoBases() * 6 " \
-                    "+ AgentManager::getInstance()->countNoUnits(" \
-                    "UnitTypes::Zerg_Extractor) * 3;",
-             "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
-             "\tint min = Broodwar->self()->minerals();",
-             "\tint gas = Broodwar->self()->gas();",
-             
-             "\t// Additional code to observe the enemy, based on code from",
-             "\t//  OpeningTest fork of OpprimoBot by andertavares:",
-             "\tSpottedObjectSet& enemyUnits = explorationManager" \
-                "->getSpottedUnits();",
-            "\n\t//Rules Subsections:"
-             ]
-
-    # Add lines for each Rule:
-    for rule in rules:
-        lines.extend(["\t"+line for line in rule.get_lines()])
-
-    # Complete Section and return lines:
-    lines.append("}")
-    return lines
-
-
 if __name__ == "__main__":
     parameters = Parameters()
-    # Create buildplan:
-    BP1 = BuildPlan.get_new_buildplan(parameters)
-    # Print buildplans:
-    lines1 = BP1.get_lines()
-    print("BP1:")
-    for line in lines1:
+
+    # Build BISections:
+    BIS = BotInitSection.get_new_bot_init_section(parameters)
+    BIS2 = BotInitSection.get_new_bot_init_section(parameters)
+
+    # Build CASections:
+    CAS = ComputeActionsSection.get_new_compute_actions_section(
+            BIS.buildplan.get_buildplan(),
+            BIS.squad_init.squads, parameters)
+    CAS2 = ComputeActionsSection.get_new_compute_actions_section(
+            BIS2.buildplan.get_buildplan(),
+            BIS2.squad_init.squads, parameters)
+
+    # Print 1:
+    lines = BIS.get_bot_init_section_lines("ZergMain")
+    for line in lines:
         print(line)
-    SI1 = SquadInit.get_new_squad_init(BP1.get_buildplan(), parameters)
-    s_lines = SI1.get_lines()
-    print("\n")
-    for line in s_lines:
+    print()
+    ca_lines = CAS.get_compute_actions_section_lines("ZergMain")
+    print()
+    for line in ca_lines:
         print(line)
-    # TODO: change units
-    R = Rule.get_new_rule(0, buildplan=BP1.get_buildplan(),
-                          units=["Zerg_Zergling", "Zerg_Hydralisk",
-                                 "Zerg_Mutalisk"],
-                          squads=SI1.squads,
-                          parameters=parameters)
-    r_lines = R.get_lines()
-    for line in r_lines:
+    print()
+
+    # Print 2:
+    lines = BIS2.get_bot_init_section_lines("ZergMain2")
+    for line in lines:
+        print(line)
+    print()
+    ca_lines = CAS2.get_compute_actions_section_lines("ZergMain2")
+    print()
+    for line in ca_lines:
+        print(line)
+
+    # Crossover (BIS):
+    C1, C2 = ComputeActionsSection.crossover(CAS, CAS2, parameters)
+
+    # Print children:
+    clines = C1.get_compute_actions_section_lines("Child1")
+    print()
+    for line in clines:
+        print(line)
+    print()
+    clines = C2.get_compute_actions_section_lines("Child2")
+    print()
+    for line in clines:
         print(line)
