@@ -15,8 +15,76 @@ from ga.chromo import uniform_crossover, single_point_crossover
 from starcraft.units import ZergUnits
 from ga.parameters import Parameters
 
+class BotInitSection(object):
+    """Defines the constructor section of a strategy class."""
+
+    def __init__(self, buildplan, squad_init):
+        self.buildplan = buildplan
+        self.squad_init = squad_init
+
+    def clone(self):
+        """Return a deep copy of this BotInitSection."""
+
+        return BotInitSection(self.buildplan.clone(), self.squad_init.clone())
+
+    def mutate(self, parameters):
+        """Perform mutation on this section."""
+
+        # Mutate buildplan:
+        self.buildplan.mutate(parameters)
+
+        # Correct any issues with SquadInit:
+        self.squad_init.buildplan = self.buildplan.get_buildplan()
+        self.squad_init._correct_squads(parameters)
+
+        # Mutate SquadInit:
+        self.squad_init.mutate(parameters)
+
+    def get_bot_init_section_lines(self, class_name="ZergMain"):
+        """Return a list of lines representing the constructor of a
+            Strategy class in OpprimoBot.
+        """
+
+        lines = ["{}::{}() {}".format(class_name, class_name, "\n{"), "\t// Buildingplan subsection:"]
+        lines.extend(["\t"+line for line in self.buildplan.get_lines()])
+        lines.append("\n\t// SquadInit subsection:")
+        lines.extend(["\t"+line for line in self.squad_init.get_lines()])
+        lines.extend(["\tnoWorkers = 11;", "\tnoWorkersPerRefinery = 3;", "}"])
+        return lines
+
+    @staticmethod
+    def crossover(X1, X2, parameters):
+        """Perform several crossover operations on BotInitSections
+            X1 and X2 to produce 2 children.
+        """
+
+        # Clone X1 and X2 and crossover their BuildPlans:
+        C1 = X1.clone()
+        C2 = X2.clone()
+        BP1, BP2 = BuildPlan.crossover(X1.buildplan, X2.buildplan, parameters)
+        C1.buildplan = BP1
+        C2.buildplan = BP2
+
+        # Update squad_init's buildplans before performing crossover on SquadInits:
+        C1.squad_init.buildplan = BP1.get_buildplan()
+        C2.squad_init.buildplan = BP2.get_buildplan()
+        SI1, SI2 = SquadInit.crossover(X1.squad_init, X2.squad_init, parameters)
+        C1.squad_init = SI1
+        C2.squad_init = SI2
+        return C1, C2
+
+    @staticmethod
+    def get_new_bot_init_section(parameters):
+        """Return a new BotInitSection."""
+
+        BP = BuildPlan.get_new_buildplan(parameters)
+        SI = SquadInit.get_new_squad_init(BP.get_buildplan(), parameters)
+        return BotInitSection(BP, SI)
+
 
 class BuildPlan(object):
+    """Contains the initial build-order that the bot will follow."""
+
 # The first two rules are always:
 #     buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Spawning_Pool, 5));
 #     buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Extractor, 5));
@@ -112,6 +180,19 @@ class BuildPlan(object):
         clone = BuildPlan(self.priorities, cutoff=self.cutoff)
         return clone
 
+    def mutate(self, parameters):
+        """Randomly change 1 or more priorities in this buildplan."""
+
+        L = len(self.priorities)
+        n_changes = 1 + parameters.RAND.randint(0, 9)
+        for _ in range(n_changes):
+            i = parameters.RAND.randint(0, L-1)
+            d = parameters.RAND.randint(-5, 10)
+            self.priorities[i] += d
+            if self.priorities[i] < 5:
+                self.priorities[i] = 5
+        self._correct_priorities()
+
     @staticmethod
     def crossover(X1, X2, parameters):
         """Perform uniform crossover on BuildPlans X1 and X2 to
@@ -197,6 +278,31 @@ class SquadInit(object):
             lines.append("\n")
         return lines
 
+    def mutate(self, parameters):
+        """Randomly change, remove, or insert a squad.
+
+        The first squad is always the mainSquad and will never be
+        removed.
+        """
+
+        S = len(self.squads)
+        # Choose a Squad:
+        si = parameters.RAND.randint(0, S-1)
+
+        # Determine change:
+        c = parameters.RAND.randint(0, 2)
+
+        if c == 0:   # Change the squad:
+            # TODO: Allow more changes?
+            self.squads[si].mutate(parameters)
+        elif c == 1 and si != 0:            # Remove the squad:
+            del self.squads[si]
+        else:                   # Add a new squad:
+            squad_name = "squad{}".format(S)
+            self.squads.append(Squad.get_new_squad(name=squad_name, s_id=S,
+                                                   buildplan=self.buildplan,
+                                                   parameters=parameters))
+
     @staticmethod
     def crossover(X1, X2, parameters):
         """Perform uniform crossover on SquadInits X1 and X2 to
@@ -235,6 +341,18 @@ class SquadInit(object):
                                               buildplan=buildplan,
                                               parameters=parameters))
         return SquadInit(squads, buildplan)
+
+    @staticmethod
+    def get_units(squads):
+        """Return a set of all UnitTypes that are seen in squads."""
+
+        units = []
+        for squad in squads:
+            unit_ts, _ = zip(*squad.units)
+            for unit_t in unit_ts:
+                if unit_t not in units:
+                    units.append(unit_t)
+        return units
 
 
 class Squad(object):
@@ -276,7 +394,7 @@ class Squad(object):
         squads.push_back(mainSquad);
         """
 
-        self.units = units
+        self.units = units  # type and count
         self.id = squad_id
         self.name = squad_name
         self.type = squad_type
@@ -343,6 +461,22 @@ class Squad(object):
         # TODO: if has lurkers, set morph!
         return init_line + squad_setup_lines + setup_lines
 
+    def mutate(self, parameters):
+        """Mutate this squad.
+
+        Change the squad type and/or the priority.
+        """
+
+        t = parameters.RAND.randint(0, 2)
+        if t == 0 or t == 1:  # change priority:
+            self.priority += parameters.RAND.randint(-5, 10)
+            if self.priority < 1:
+                self.priority = 1
+        if t > 0 and self.name != "mainSquad":  # change type:
+            self.type = SquadInit.S_TYPES[parameters.RAND.randint(
+                    0, len(SquadInit.S_TYPES)-1)]
+            
+
     @staticmethod
     def get_unit_line(squad_name, unit_type, num_unit):
         # RuleSubsection might also need this
@@ -354,7 +488,7 @@ class Squad(object):
 
         # Generate squad parameters:
         if name == "mainSquad":
-            squad_type = "OFFENSIVE"
+            squad_type = SquadInit.S_TYPES[0]
             set_buildup = "true"
             set_required = "true"
             priority = 10
@@ -388,92 +522,39 @@ class Squad(object):
                      set_buildup=set_buildup, set_required=set_required)
 
 
-def crossover_bot_init_section(X1, X2, parameters):
-    # TODO: Write me!
-    # NOTE: after crossing over on buildplans, make sure to update buildplan
-    #  in SquadInit Subsections
-    pass
-
-def get_bot_init_section_lines(class_name="ZergMain", buildplan=None,
-                               squad_init=None):
-    """Return a list of lines representing the constructor of a
-        Strategy class in OpprimoBot.
-    """
-
-    lines = ["{}::{}() {}".format(class_name, class_name, "\n{"), "\t// Buildingplan subsection:"]
-    lines.extend(["\t"+line for line in buildplan.get_lines()])
-    lines.append("\n\t// SquadInit subsection:")
-    lines.extend(["\t"+line for line in squad_init.get_lines()])
-    lines.extend(["\tnoWorkers = 11;", "\tnoWorkersPerRefinery = 3;", "}"])
-    return lines
-    
-
-
 if __name__ == "__main__":
     parameters = Parameters()
-    # Test BuildPlan:
-    BP1 = BuildPlan.get_new_buildplan(parameters)
-    BP2 = BuildPlan.get_new_buildplan(parameters)
- 
-    # Print buildplans:
-    lines1 = BP1.get_lines()
-    lines2 = BP2.get_lines()
-    print("BP1:")
-    for line in lines1:
+
+    # Test BotInitSection:
+    BIS = BotInitSection.get_new_bot_init_section(parameters)
+    lines = BIS.get_bot_init_section_lines("ZergMain")
+    for line in lines:
         print(line)
+    print()
 
-    # Test next_on_buildplan:
-    print(ZergUnits.next_on_buildplan(BP1.get_buildplan(), parameters, type_="tech"))
- 
-#     # Crossover:
-#     children = BuildPlan.crossover(BP1, BP2, parameters)
-# 
-#     # print children
-#     for child in children:
-#         print("child:")
-#         lines = child.get_subsection_lines()
-#         for line in lines:
-#             print(line)
-#         print(child.get_buildplan())
-#         print("can train: {}".format(
-#                 ZergUnits.get_available_units(child.get_buildplan())))
-
-#     # Test Squad:
-#     print("Squad units:")
-#     S1 = Squad.get_new_squad("mainSquad", 0, BP1.get_buildplan(), parameters)
-#     print(S1.units)
-#     squad_lines = S1.get_subsection_lines()
-#     for line in squad_lines:
-#         print(line)
-
-    # Test SquadInit:
-    SI1 = SquadInit.get_new_squad_init(BP1.get_buildplan(), parameters)
-    squad_init_lines = SI1.get_lines()
-#     print("\n")
-#     for line in squad_init_lines:
-#         print(line)
-#     print("BP2:")
-#     for line in lines2:
-#         print(line)
-    SI2 = SquadInit.get_new_squad_init(BP2.get_buildplan(), parameters)
-    squad_init_lines = SI2.get_lines()
-#     print("\n")
-#     for line in squad_init_lines:
-#         print(line)
-#     # Make Love, not StarCraft (that doesn't make any sense!)
-#     print("\nMaking CHidlren!\n")
-#     C1, C2 = SquadInit.crossover(SI1, SI2, parameters)
-#     c1lines = C1.get_lines()
-#     for line in c1lines:
-#         print(line)
-#     print("\nC2:")
-#     c2lines = C2.get_lines()
-#     for line in c2lines:
-#         print(line)
+    # Test Crossover:
+    BIS2 = BotInitSection.get_new_bot_init_section(parameters)
+    lines = BIS2.get_bot_init_section_lines("ZergMain")
+    for line in lines:
+        print(line)
+    print()
     
-    # Test get_bot_init_section_lines:
-#     print("\n")
-#     lines = get_bot_init_section_lines(class_name="ZergMain", buildplan=BP1,
-#                                squad_init=SI1)
-#     for line in lines:
-#         print(line)
+    C1, C2 = BotInitSection.crossover(BIS, BIS2, parameters)
+    print("c1:------")
+    lines = C1.get_bot_init_section_lines("ZergMain")
+    for line in lines:
+        print(line)
+    print()
+    
+    print("c2:------")
+    lines = C2.get_bot_init_section_lines("ZergMain")
+    for line in lines:
+        print(line)
+    print()
+
+    # Test Mutation:
+    C2.mutate(parameters)
+    lines = C2.get_bot_init_section_lines("ZergMain")
+    for line in lines:
+        print(line)
+    print()
