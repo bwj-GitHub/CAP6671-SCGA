@@ -4,7 +4,9 @@ Created on Apr 14, 2017
 @author: brandon
 """
 
-
+import os
+import sys
+import subprocess
 from ga.fitness import FitnessFunction
 
 
@@ -47,12 +49,63 @@ def compile_bot(X, output_dir):
     :param X: SCStrategyChromo; a chromosome representing a (zerg?)
         strategy class for OpprimoBot.
 
-    :param output_dir: str; path to directory to output .dll to.
+    :param output_dir: The output directory to store the .dll file.
+        Should end in a slash. In order to be compatible with
+        TournamentManager, the .dll should be stored in
+        TournamentManager\server\bots\<botname>\
 
     :return: str; the path to .dll, if build was successful, else None.
     """
+    # TODO:
+    # Generate .cpp file(s) and add to visual studio project
 
-    raise NotImplementedError()
+    msbuild = r"C:\Program Files (x86)\MSBuild\12.0\Bin\MSBuild.exe"      
+    project = r"C:\TM\SCGABot\SCProjects\SCProjects.sln"
+    rebuild = '/t:Rebuild'
+    release = '/p:Configuration=Release'
+    win32 = '/p:Platform=Win32'
+    output = '/p:OutDir=' + output_dir
+    name = "/p:TargetName=Bot{}".format(X.id)
+
+    # Specify MSBuild path
+    command = [msbuild]
+    # Specify project to build
+    command.append(project)
+    # Specify build type
+    command.append(rebuild)
+    # Specify target architecture
+    command.append(win32)
+    # Specify relase type
+    command.append(release)
+    # Specify the output path
+    command.append(output)
+    # Specify the name of the bot
+    command.append(name)
+
+    # Build the solution
+    print ('Build Start ************************')
+    
+    process = subprocess.Popen(args = command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    while True:
+        nextline = process.stdout.readline()
+        if nextline == b'' and process.poll() != None:
+            break
+        sys.stdout.write(nextline.decode('cp949'))      # adjust the codepage for your console
+        sys.stdout.flush()
+
+    output = process.communicate()[0]
+    exitCode = process.returncode
+    
+    print ('************************')
+    print('build finished %d ' % process.returncode)
+    
+    # Build successful    
+    if (exitCode == 0):
+         return output_dir + "Bot{}.dll".format(X.id)
+    # Build failed
+    else:
+        return None
 
 
 def execute_tournament(path_to_dll):
