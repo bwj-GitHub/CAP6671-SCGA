@@ -5,6 +5,9 @@ Created on Apr 13, 2017
 """
 
 
+import statistics
+
+
 class SteadyStateGA(object):
     """Brief descript. of class."""
 
@@ -28,6 +31,9 @@ class SteadyStateGA(object):
         self.N = self.parameters.N  # population size
         self.max_problem = self.parameters.MAX_PROBLEM  # max if True, else min
         self.verbosity = self.parameters.VERBOSITY
+
+        self.avg_fitness = 0
+        self.std_fitness = 0
 
     def select_best(self, chromos, N):
         """Return the N best Chromos in chromos."""
@@ -76,12 +82,24 @@ class SteadyStateGA(object):
             replacements = self.select_best(parents + children, N=2)
             for pi in parent_inds:
                 population[pi] = replacements.pop()
+
+            # Calculate the average fitness of an iteration:
+            avg_fitness = statistics.mean([X.raw_fitness for X in population])
+            std_fitness = statistics.pstdev([X.raw_fitness for X in population])
+
+            # Display iteration summary:
             if self.verbosity > 0:
                 print("Finished iteration {}!".format(i))
                 print("New Population:")
                 for chromo in population:
                     print("\tChromo {}, F={}".format(chromo.id, chromo.raw_fitness))
+                print("Average Fitness = {} (delta={})".format(
+                        avg_fitness, avg_fitness - self.avg_fitness))
+                print("Stdev of Fitness = {} (delta={})".format(
+                        std_fitness, std_fitness - self.std_fitness))
                 print()
+            self.avg_fitness = avg_fitness
+            self.std_fitness = std_fitness
 
         return population
 
