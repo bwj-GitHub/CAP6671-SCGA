@@ -16,11 +16,12 @@ class FitnessFunction(object):
     def do_raw_fitness(self, X):
         if self.parameters.VERBOSITY > 0:
             print("Evaluating individual {} for fitness...".format(X.id))
+        X.raw_fitness = Random().random()
         return
 
 
 class Selector(object):
-    """."""
+    """Class for selecting some number of individauls from a population."""
 
     def __init__(self, parameters):
         """."""

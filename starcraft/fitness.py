@@ -10,6 +10,22 @@ import subprocess
 from ga.fitness import FitnessFunction
 
 
+class LineCountFitness(FitnessFunction):
+    """A fitness function for testing; goal: maximize number of lines."""
+
+    def __init__(self, parameters):
+        """Set parameters."""
+
+        super(LineCountFitness, self).__init__(parameters)
+        self.output_dir = parameters.DLL_DIR
+
+    def do_raw_fitness(self, X):
+        """Calculate and set the raw fitness score of Chromo X."""
+
+        FitnessFunction.do_raw_fitness(self, X)
+        X.raw_fitness = len(X.get_lines())
+
+
 class ReportBasedFitness(FitnessFunction):
     """Describes the problem to be solved in terms of Report Statistics."""
 

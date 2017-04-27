@@ -33,6 +33,11 @@ class SteadyStateGA(object):
         """Return the N best Chromos in chromos."""
 
         chromos.sort(key=lambda x: x.raw_fitness, reverse=self.max_problem)
+
+        if self.verbosity > 0:
+            print("Selected {} from {}".format(
+                    [("{} (F={})".format(c.id, c.raw_fitness)) for c in chromos[0:N]],
+                    [("{} (F={})".format(c.id, c.raw_fitness)) for c in chromos]))
         return chromos[0:N]
 
     def run(self, population=None, iterations=100):
@@ -51,17 +56,32 @@ class SteadyStateGA(object):
                 self.problem.do_raw_fitness(population[i])
 
         for i in range(iterations):
+            if self.verbosity > 0:
+                print("Iteration {}:".format(i))
             # Select 2 parents and replace them with the 2 best individuals
             # from the set of those parents and their 2 children.
-            parents = self.selector.select(population , 2)  # returns indices
-            children = self.chromo_cls.crossover(*parents, self.parameters)
+            parent_inds = self.selector.select(population , 2)  # returns indices
+            if self.verbosity > 0:
+                print("\nSelected for crossover: {}".format(
+                        [population[pi].id for pi in parent_inds]))
+            parents = [population[i] for i in parent_inds]
+
+            children = self.chromo_cls.crossover(*parents, parameters=self.parameters)
+            if self.verbosity > 0:
+                print("Added children: {}".format([child.id for child in children]))
             for child in children:
                 self.chromo_cls.mutate(child, self.parameters)
                 self.problem.do_raw_fitness(child)
+
             replacements = self.select_best(parents + children, N=2)
-            for pi in parents:
+            for pi in parent_inds:
                 population[pi] = replacements.pop()
-            if self.verbosity > 0: print("Finished iteration {}!".format(i))
+            if self.verbosity > 0:
+                print("Finished iteration {}!".format(i))
+                print("New Population:")
+                for chromo in population:
+                    print("\tChromo {}, F={}".format(chromo.id, chromo.raw_fitness))
+                print()
 
         return population
 

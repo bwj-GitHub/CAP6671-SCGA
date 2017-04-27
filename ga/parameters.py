@@ -19,14 +19,17 @@ class Parameters(object):
         self.RAND = rand_gen
         self.VERBOSITY = verbosity
         self.MUT_RATE = .99
-        self.next_id = 0
+        self.LOG_DIR = kwargs.get("log_out", "./LOGS/")
 
         # Tournament Selection parameters:
-        self.TOURNAMENT_SIZE = kwargs.get("tournament_size")
-        self.TOURNAMENT_P = kwargs.get("tournament_p")
+        self.TOURNAMENT_SIZE = kwargs.get("tournament_size", 2)
+        self.TOURNAMENT_P = kwargs.get("tournament_p", .95)
 
-        # Misc. Parameters:
+        # Misc. Parameters (TODO: move these to subclass?):
         self.BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
+        self.DLL_DIR = "./"
+
+        self.next_id = 0
 
     def get_new_id(self):
         """Return a unique ID for a Chromo.

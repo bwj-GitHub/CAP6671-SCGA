@@ -114,19 +114,17 @@ class SCStrategyChromo(Chromo):
         # TODO: Indicate what the "original GP bot" is referring to.
         """
 
+        if parameters.VERBOSITY > 0:
+            print("Mutating chromo {}".format(X.id))
+
         r = parameters.RAND.random()
         if r < parameters.MUT_RATE:
-            print("MUTATING")
             # Mutate the BuildPlan and/or Rules
             r = parameters.RAND.random()
             if r < .75:
-                print("Mutating BIS")
                 X.BIS.mutate(parameters)
             if r > .25:
-                print("MUTATING CAS")
                 X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads(), parameters)
-        else:
-            return  # No mutation
 
     @staticmethod
     def crossover(X1, X2, parameters):
@@ -137,17 +135,19 @@ class SCStrategyChromo(Chromo):
         and ComputeAction sections, separately. The crossover will
         swap the subsections in those sections after some point; all
         subsections are ordered.
+        
+        :return: list; list of two children SCStrategyChromos.
         """
 
         C1_BIS, C2_BIS = BotInitSection.crossover(X1.BIS, X2.BIS, parameters)
 
         C1_CAS, C2_CAS = ComputeActionsSection.crossover(X1.CAS, X2.CAS, parameters)
-        C1_CAS._correct_rules(C1_BIS.get_buildplan(), C1_BIS.get_squads, parameters)
-        C2_CAS._correct_rules(C2_BIS.get_buildplan(), C2_BIS.get_squads, parameters)
+        C1_CAS._correct_rules(C1_BIS.get_buildplan(), C1_BIS.get_squads(), parameters)
+        C2_CAS._correct_rules(C2_BIS.get_buildplan(), C2_BIS.get_squads(), parameters)
         
-        C1 = SCStrategyChromo(parameters.get_new_id(), C1_BIS, C2_BIS)
-        C2 = SCStrategyChromo(parameters.get_new_id(), C2_BIS, C2_BIS)
-        return C1, C2
+        C1 = SCStrategyChromo(parameters.get_new_id(), C1_BIS, C2_CAS)
+        C2 = SCStrategyChromo(parameters.get_new_id(), C2_BIS, C2_CAS)
+        return [C1, C2]
 
 
 if __name__ == "__main__":
