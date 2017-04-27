@@ -96,7 +96,7 @@ class ComputeActionsSection(object):
         # Add lines for each Rule:
         for rule in self.rules:
             lines.extend(["\t"+line for line in rule.get_lines()])
-    
+
         # Complete Section and return lines:
         lines.append("}")
         return lines
@@ -354,15 +354,31 @@ class Rule(object):
         added by previous Rules.
         """
 
+        def filter_buildplan(buildplan):
+            """Return a list of Buildings in buildplan.
+
+            buildplan containts a mixture of buildings, upgrades,
+            and tech.
+            """
+
+            buildings = []
+            for b in buildplan:
+                if b in ZergUnits.BUILDING_REQS.keys():
+                    buildings.append(b)
+            return buildings
+
+        # Filter buildplan and determine number of units to check for:
+        buildings = filter_buildplan(buildplan)  # ignore upgrades/tech
         unit_reqs = []
-        n_units = 1+ parameters.RAND.randint(0, 3) % 3  # favor 1
+        n_units = 1 + parameters.RAND.randint(0, 3) % 3  # favor 1
         u_track = []  # track units already added
+
         # Create n_units unit reqs:
         for _ in range(n_units):
             # Check for some building or unit:
             r = parameters.RAND.random()
             if r < .5:  # check for some building:
-                u_type = buildplan[parameters.RAND.randint(0, len(buildplan)-1)]
+                u_type = buildings[parameters.RAND.randint(0, len(buildings)-1)]
                 if u_type == "Zerg_Hatchery":
                     u_count = parameters.RAND.randint(0, 2)
                 else:
@@ -376,7 +392,7 @@ class Rule(object):
             u_track.append(u_type)
             unit_reqs.append((u_type, u_count))
         return unit_reqs
-    
+
     @staticmethod
     def _e_no(e_type, parameters):
         """Return an appropriate count for e_type.
