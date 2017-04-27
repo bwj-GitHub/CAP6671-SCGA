@@ -88,7 +88,7 @@ class ComputeActionsSection(object):
                  
                  "\t// Additional code to observe the enemy, based on code from",
                  "\t//  OpeningTest fork of OpprimoBot by andertavares:",
-                 "\tSpottedObjectSet& enemyUnits = explorationManager" \
+                 "\tSpottedObjectSet& enemyUnits = ExplorationManager::getInstance()" \
                     "->getSpottedUnits();",
                 "\n\t//Rules Subsections:"
                  ]

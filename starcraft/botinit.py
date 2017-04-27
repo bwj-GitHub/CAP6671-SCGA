@@ -15,6 +15,7 @@ from ga.chromo import uniform_crossover, single_point_crossover
 from starcraft.units import ZergUnits
 from ga.parameters import Parameters
 
+
 class BotInitSection(object):
     """Defines the constructor section of a strategy class."""
 
@@ -45,7 +46,10 @@ class BotInitSection(object):
             Strategy class in OpprimoBot.
         """
 
-        lines = ["{}::{}() {}".format(class_name, class_name, "\n{"), "\t// Buildingplan subsection:"]
+        lines = ["{}::{}() {}".format(class_name, class_name, "\n{"),
+                 "\t// NOTE: Enusre that you add up to 9 squads to the .h file.",
+                 "\t//  each squad should be named squadX, where X is a number 1-9",
+                 "\t// Buildingplan subsection:"]
         lines.extend(["\t"+line for line in self.buildplan.get_lines()])
         lines.append("\n\t// SquadInit subsection:")
         lines.extend(["\t"+line for line in self.squad_init.get_lines()])
