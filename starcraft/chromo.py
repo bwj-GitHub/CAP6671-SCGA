@@ -115,13 +115,17 @@ class SCStrategyChromo(Chromo):
         """
 
         r = parameters.RAND.random()
-        if r > parameters.MUT_RATE:
+        print("... MUTATING")
+        if r < parameters.MUT_RATE:
+            print("MUTATING")
             # Mutate the BuildPlan and/or Rules
             r = parameters.RAND.random()
-            if r < .5:
+            if r <= .5 or r > .75:
+                print("Mutating BIS")
                 X.BIS.mutate(parameters)
-            elif r > .25 and r < .75:
-                X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads, parameters)
+            if r > .25 and r <= .75:
+                print("MUTATING CAS")
+                X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads(), parameters)
         else:
             return  # No mutation
 
@@ -151,6 +155,10 @@ if __name__ == "__main__":
     parameters = Parameters()
     SCC = SCStrategyChromo.get_new_chromo(parameters)
     SCC.get_new_chromo(parameters)
+    lines = SCC.get_lines("ZergMain")
+    for line in lines:
+        print(line)
+    SCStrategyChromo.mutate(SCC, parameters)
     lines = SCC.get_lines("ZergMain")
     for line in lines:
         print(line)

@@ -56,7 +56,7 @@ class ComputeActionsSection(object):
         """
 
         # Determine some number of rules to mutate:
-        n_muts = parameters.randint(1, 3)
+        n_muts = parameters.RAND.randint(1, 3)
         for _ in range(n_muts):
             R = len(self.rules)
             r = parameters.RAND.random()

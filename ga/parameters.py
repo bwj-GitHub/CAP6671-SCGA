@@ -18,6 +18,7 @@ class Parameters(object):
         self.SELECTION_TYPE = selection_type
         self.RAND = rand_gen
         self.VERBOSITY = verbosity
+        self.MUT_RATE = .99
         self.next_id = 0
 
         # Tournament Selection parameters:
