@@ -115,15 +115,14 @@ class SCStrategyChromo(Chromo):
         """
 
         r = parameters.RAND.random()
-        print("... MUTATING")
         if r < parameters.MUT_RATE:
             print("MUTATING")
             # Mutate the BuildPlan and/or Rules
             r = parameters.RAND.random()
-            if r <= .5 or r > .75:
+            if r < .75:
                 print("Mutating BIS")
                 X.BIS.mutate(parameters)
-            if r > .25 and r <= .75:
+            if r > .25:
                 print("MUTATING CAS")
                 X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads(), parameters)
         else:

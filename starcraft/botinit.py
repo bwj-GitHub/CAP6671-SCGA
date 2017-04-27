@@ -29,17 +29,24 @@ class BotInitSection(object):
         return BotInitSection(self.buildplan.clone(), self.squad_init.clone())
 
     def mutate(self, parameters):
-        """Perform mutation on this section."""
+        """Perform mutation on this section.
+        
+        At least one mutation will occur, there is a 50% chance to
+        mutate both the buildplan and the squad init,
+        """
 
-        # Mutate buildplan:
-        self.buildplan.mutate(parameters)
+        # Determine what to mutate:
+        r = parameters.RAND.random()
+        if r < .75:
+            # Mutate buildplan:
+            self.buildplan.mutate(parameters)
 
-        # Correct any issues with SquadInit:
-        self.squad_init.buildplan = self.buildplan.get_buildplan()
-        self.squad_init._correct_squads(parameters)
-
-        # Mutate SquadInit:
-        self.squad_init.mutate(parameters)
+            # Correct any issues with SquadInit:
+            self.squad_init.buildplan = self.buildplan.get_buildplan()
+            self.squad_init._correct_squads(parameters)
+        if r > .25:
+            # Mutate SquadInit:
+            self.squad_init.mutate(parameters)
 
 
     def get_buildplan(self):
