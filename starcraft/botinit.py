@@ -41,6 +41,17 @@ class BotInitSection(object):
         # Mutate SquadInit:
         self.squad_init.mutate(parameters)
 
+
+    def get_buildplan(self):
+        """Return the list of buildings included in this buildplan."""
+
+        return self.buildplan.get_buildplan()
+
+    def get_squads(self):
+        """Return the list of squads in this sections SquadInit subsection."""
+
+        return self.squad_init.squads
+
     def get_bot_init_section_lines(self, class_name="ZergMain"):
         """Return a list of lines representing the constructor of a
             Strategy class in OpprimoBot.

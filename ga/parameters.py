@@ -25,7 +25,7 @@ class Parameters(object):
         self.TOURNAMENT_P = kwargs.get("tournament_p")
 
         # Misc. Parameters:
-        self.BUILDPLAN_CUTOFF = 28  # Don't include items in buildplan with Supply > than this
+        self.BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
 
     def get_new_id(self):
         """Return a unique ID for a Chromo.

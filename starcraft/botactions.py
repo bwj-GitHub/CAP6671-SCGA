@@ -35,6 +35,12 @@ class ComputeActionsSection(object):
             elif stage == s:
                 s += 1
 
+    def _correct_rules(self, buildplan, squads, parameters):
+        """Change rules to reflect changes in buildplan and/or squads."""
+
+        for rule in self.rules:
+            rule.correct_rule(buildplan, squads, parameters)
+
 
     def clone(self):
         """Return a deep copy of this ComputeActionsSections."""
@@ -109,18 +115,10 @@ class ComputeActionsSection(object):
 
         C1 = X1.clone()
         C2 = X2.clone()
-        print("%%%%%%%%%%")
-        print(C1.rules)
-        print("*")
-        print(C2.rules)
         C1.rules, C2.rules = single_point_crossover(C1.rules, C2.rules,
                                                       parameters.RAND)
         C1._correct_stage()
         C2._correct_stage()
-        print("___________-_________")
-        print(C1.rules)
-        print("*")
-        print(C2.rules)
         return C1, C2
 
     @staticmethod
@@ -566,7 +564,7 @@ class Rule(object):
         for _ in range(n_macros):
             # Determine the type of Macro to add (buildplan or squad):
             r = parameters.RAND.random()
-            if r < .5:  # buildplan macro
+            if r < .4:  # buildplan macro
                 macros.append(Rule._get_buildplan_macro(buildplan, parameters))
             else:       # squad macro
                 macros.append(Rule._get_squad_macro(buildplan, squads, parameters))
@@ -584,10 +582,10 @@ if __name__ == "__main__":
 
     # Build CASections:
     CAS = ComputeActionsSection.get_new_compute_actions_section(
-            BIS.buildplan.get_buildplan(),
+            BIS.get_buildplan(),
             BIS.squad_init.squads, parameters)
     CAS2 = ComputeActionsSection.get_new_compute_actions_section(
-            BIS2.buildplan.get_buildplan(),
+            BIS2.get_buildplan(),
             BIS2.squad_init.squads, parameters)
 
     # Print 1:
