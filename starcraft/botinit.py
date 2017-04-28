@@ -65,8 +65,8 @@ class BotInitSection(object):
         """
 
         lines = ["{}::{}() {}".format(class_name, class_name, "\n{"),
-                 "\t// NOTE: Enusre that you add up to 9 squads to the .h file.",
-                 "\t//  each squad should be named squadX, where X is a number 1-9",
+                 "\t// NOTE: Enusre that you add up to 10 squads to the .h file.",
+                 "\t//  each squad should be named squadX, where X is a number 1-11",
                  "\t// Buildingplan subsection:"]
         lines.extend(["\t"+line for line in self.buildplan.get_lines()])
         lines.append("\n\t// SquadInit subsection:")
@@ -258,7 +258,7 @@ class BuildPlan(object):
 class SquadInit(object):
     """Contains the list of initial squads to create in Constructor."""
 
-    S_TYPES = ["Squad::OFFENSIVE", "Squad::DEFENSIVE", "Squad::EXPLORATION",
+    S_TYPES = ["Squad::OFFENSIVE", "Squad::DEFENSIVE", "Squad::EXPLORER",
                "Squad::SUPPORT", "Squad::RUSH", "Squad::KITE"]
 
     def __init__(self, squads, buildplan):
@@ -317,9 +317,9 @@ class SquadInit(object):
         if c == 0:   # Change the squad:
             # TODO: Allow more changes?
             self.squads[si].mutate(parameters)
-        elif c == 1 and si != 0:            # Remove the squad:
+        elif c == 1 and si != 0:            # Remove the squad (except main):
             del self.squads[si]
-        else:                   # Add a new squad:
+        elif S < 11:                   # Add a new squad:
             squad_name = "squad{}".format(S)
             self.squads.append(Squad.get_new_squad(name=squad_name, s_id=S,
                                                    buildplan=self.buildplan,

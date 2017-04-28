@@ -3,6 +3,8 @@ Created on Apr 16, 2017
 
 @author: brandon
 
+IMPORTANT: Requires OpeningTest, OpprimoBot is not sufficient!
+
 SCStrategyChromo requirements:
 1) A chromo consists of 2 unique sections: constructor and computeActions
 # constructor
@@ -83,7 +85,11 @@ class SCStrategyChromo(Chromo):
     def write_lines(self, output_dir, class_name):
         """Write this Chromo as a cpp class for OpprimoBot."""
 
-        pass
+        lines = self.get_lines(class_name)
+        filename = output_dir + class_name + ".cpp"
+        with open(filename, "w") as fp:
+            for line in lines:
+                fp.write(line + "\n")
 
     @staticmethod
     def get_new_chromo(parameters):

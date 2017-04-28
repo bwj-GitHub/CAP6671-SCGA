@@ -5,6 +5,8 @@ Created on Apr 27, 2017
 
 Defines a StarCraft Genetic Programming experiment. A Steady-State
 Genetic Algorithm (GA) is used.
+
+IMPORTANT: Requires OpeningTest, OpprimoBot is not sufficient!
 """
 
 
@@ -71,8 +73,10 @@ selector = Selector(params)
 SSGA = SteadyStateGA(chromo_cls=SCStrategyChromo, problem=problem,
                      selector=selector, parameters=params)
 
-init_pop = load_population("../zPopulations/population_1493340294.p", params)
+init_pop = load_population("../zPopulations/population_1493345315.p", params)
 print(init_pop[0].raw_fitness)
+init_pop[1].write_lines("../zSources/", "ZergMain")
+
 pops, run_stats = SSGA.experiment(population=init_pop, iterations=5, runs=5)
 
 

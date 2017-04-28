@@ -79,7 +79,7 @@ class ComputeActionsSection(object):
         """Return a list of lines representing the computeActions method
              of a Strategy class in OpprimoBot.
         """
-    
+
         # Add constant init lines:
         lines = [
                  "void {}::computeActions()".format(class_name),
@@ -91,14 +91,14 @@ class ComputeActionsSection(object):
                  "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
                  "\tint min = Broodwar->self()->minerals();",
                  "\tint gas = Broodwar->self()->gas();",
-                 
-                 "\t// Additional code to observe the enemy, based on code from",
-                 "\t//  OpeningTest fork of OpprimoBot by andertavares:",
-                 "\tSpottedObjectSet& enemyUnits = ExplorationManager::getInstance()" \
-                    "->getSpottedUnits();",
+
+#                  "\t// Additional code to observe the enemy, based on code from",
+#                  "\t//  OpeningTest fork of OpprimoBot by andertavares:",
+#                  "\tSpottedObjectSet& enemyUnits = ExplorationManager::getInstance()" \
+#                     "->getSpottedUnits();",
                 "\n\t//Rules Subsections:"
                  ]
-    
+
         # Add lines for each Rule:
         for rule in self.rules:
             lines.extend(["\t"+line for line in rule.get_lines()])
@@ -294,8 +294,8 @@ class Rule(object):
         ri = parameters.RAND.randint(0, 100)
         if ri % 2 == 0:
             self.minerals += 25 * parameters.RAND.randint(-5, 5)
-        else:
-            self.enemy_has = self._get_enemy_has(parameters, 1)
+#         else:
+#             self.enemy_has = self._get_enemy_has(parameters, 1)
         if ri < 20:
             self.gas += 15 * parameters.RAND.randint(-5, 5)
         if ri % 20 == 0:
@@ -555,8 +555,9 @@ class Rule(object):
         r = parameters.RAND.random()
         if r < .5:                  # check for finished units
             unit_reqs = Rule._get_unit_reqs(buildplan, units, parameters)
-        if r >= .25 and r < .75:    # check enemy's units
-            enemy_has = Rule._get_enemy_has(parameters)
+            # TODO: enemy rules don't work with OpprimoBot
+#         if r >= .25 and r < .75:    # check enemy's units
+#             enemy_has = Rule._get_enemy_has(parameters)
 
         # Generate macros:
         macros = []
