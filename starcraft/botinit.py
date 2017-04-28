@@ -12,7 +12,7 @@ construct the bot init section.
 import random
 
 from ga.chromo import uniform_crossover, single_point_crossover
-from starcraft.units import ZergUnits
+from starcraft.units import TerranUnits
 from ga.parameters import Parameters
 
 
@@ -107,21 +107,14 @@ class BotInitSection(object):
 class BuildPlan(object):
     """Contains the initial build-order that the bot will follow."""
 
-# The first two rules are always:
-#     buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Spawning_Pool, 5));
-#     buildplan.push_back(BuildplanEntry(UnitTypes::Zerg_Extractor, 5));
-
     # Only these buildings/Upgrades/Techs will be in the building plan,
-    # OpprimoBot will  build more Lairs/Hives; Extractors will be
     # added in compute actions.
-    TYPES = ["Zerg_Hatchery", "Zerg_Hydralisk_Den", "Zerg_Evolution_Chamber", 
-             "Zerg_Lair", "Zerg_Spire", "Zerg_Queens_Nest", "Zerg_Hive",
-             "Zerg_Greater_Spire", "Zerg_Defiler_Mound", 
-             "Zerg_Ultralisk_Cavern",
+    TYPES = ["Terran_Barracks", "Terran_Supply_Depot"]  # Extras?
+    TYPES += ["Terran_Barracks", "Terran_Supply_Depot", "Terran_Factory"]  # More Extras?
+    TYPES += list(TerranUnits.BUILDING_REQS.keys())  # 5 - 22
+    TYPES += list(TerranUnits.UPGRADE_REQS.keys())  # 23 - 39
+    TYPES += list(TerranUnits.TECH_REQS.keys())  # 40 - 48
 
-             ] # 0-9
-    TYPES += list(ZergUnits.UPGRADE_REQS.keys())  # 10 - 25
-    TYPES += list(ZergUnits.TECH_REQS.keys())  # 26 +
 
     def __init__(self, priorities, cutoff=24, debug=False):
         # buildings with priority > than 56 will not be included in Buildplan
@@ -142,12 +135,12 @@ class BuildPlan(object):
             u_type = BuildPlan.TYPES[i]
 
             # Determine REQS:
-            if i < 10:  # Check for reqs in BUILDINGS:
-                reqs = ZergUnits.BUILDING_REQS[u_type]
-            elif i < 26:  # Check for reqs in UPGRADES:
-                reqs = ZergUnits.UPGRADE_REQS[u_type]
+            if i < 23:  # Check for reqs in BUILDINGS:
+                reqs = TerranUnits.BUILDING_REQS[u_type]
+            elif i < 40:  # Check for reqs in UPGRADES:
+                reqs = TerranUnits.UPGRADE_REQS[u_type]
             else:
-                reqs = ZergUnits.TECH_REQS[u_type]
+                reqs = TerranUnits.TECH_REQS[u_type]
             
             # Correct REQS (if necessary):
             if reqs is None:
@@ -155,10 +148,8 @@ class BuildPlan(object):
             for req in reqs:
                 priority = self.priorities[i]
                 req_i = None
-                if req == "Zerg_Hatchery":  # Always has at beginning
+                if req == "Terran_Command_Center":  # Always has at beginning
                     req_priority = 1
-                elif req == "Zerg_Spawning_Pool":
-                    req_priority = 5  # Always built at 5
                 elif req is None:
                     continue
                 else:
@@ -167,26 +158,23 @@ class BuildPlan(object):
 
                 # NOTE: this only works if deps are evaluate first!
                 if req_priority >= priority:
-                    self.priorities[i] = req_priority + 2
+                    # TODO: Use parameters!?
+                    self.priorities[i] = req_priority + 2 * random.randint(1, 4)
 
 
     def get_buildplan(self):
         """Return a list of buildings and upgrades in this buildplan."""
 
-        buildings = ["Zerg_Hatchery", "Zerg_Spawning_Pool"]
+        buildings = ["Terran_Command_Center"]
         buildings += [self.TYPES[i] for i in range(len(self.priorities))
                       if self.priorities[i] <= self.cutoff]
         return buildings
 
     def get_lines(self):
         """Return a list of strs representing this subsection.
-        
-        All buildplans begin with both a Zerg_Spawning_Pool and a 
-        Zerg_Extractor at 5 Supply.
         """
 
-        lines = [BuildPlan.get_buildingplan_line("Zerg_Spawning_Pool", 5),
-                 BuildPlan.get_buildingplan_line("Zerg_Extractor", 5)]  # Build second extractor?
+        lines = []
         buildorder = [(self.priorities[i], self.TYPES[i])
                       for i in range(len(self.priorities))]
         buildorder.sort()
@@ -232,9 +220,9 @@ class BuildPlan(object):
         """Return a str representation to add unit_type to the Buildplan."""
 
         # Determine the type of entry (Unit, Tech, Upgrade):
-        if unit in ZergUnits.UPGRADE_REQS.keys():
+        if unit in TerranUnits.UPGRADE_REQS.keys():
             unit_type = "UpgradeTypes::" + unit
-        elif unit in ZergUnits.TECH_REQS.keys():
+        elif unit in TerranUnits.TECH_REQS.keys():
             unit_type = "TechTypes::" + unit
         else:
             unit_type = "UnitTypes::" + unit
@@ -247,11 +235,12 @@ class BuildPlan(object):
     def get_new_buildplan(parameters):
         """Return a new, randomly generated BuildPlan."""
 
-        priorities = [(2 * random.randint(3, 10)
-                       * random.randint(1, 2)  # increase variability
-                       * ( 1 if i < 5 or i > 10 else random.randint(1, 3)))
+        priorities = [parameters.RAND.randint(8, 14) if i < 2 else
+                      parameters.RAND.randint(16, 28) if i < 5 else
+                      parameters.RAND.randint(10, 60)
                       for i in range(len(BuildPlan.TYPES))
                       ]
+
         return BuildPlan(priorities, cutoff=parameters.BUILDPLAN_CUTOFF)
 
 
@@ -432,7 +421,7 @@ class Squad(object):
         new_units = []
         for i in range(len(self.units)):
             unit_t = self.units[i][0]
-            unit_reqs = ZergUnits.UNIT_REQS[unit_t]
+            unit_reqs = TerranUnits.UNIT_REQS[unit_t]
             to_add = True
             for req in unit_reqs:
                 if req not in buildplan:
@@ -522,7 +511,7 @@ class Squad(object):
             priority = 10 + parameters.RAND.randint(-2, 10)
 
         # Add setups to this Squad:
-        UNITS = ZergUnits.get_available_units(buildplan)
+        UNITS = TerranUnits.get_available_units(buildplan)
         units = []
         unit_types_seen = []  # Keep track of what has been added to squad
         n_units = 1 + parameters.RAND.randint(0, 15) % 9  # prefer small n_units
@@ -549,34 +538,34 @@ if __name__ == "__main__":
 
     # Test BotInitSection:
     BIS = BotInitSection.get_new_bot_init_section(parameters)
-    lines = BIS.get_bot_init_section_lines("ZergMain")
+    lines = BIS.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()
 
     # Test Crossover:
     BIS2 = BotInitSection.get_new_bot_init_section(parameters)
-    lines = BIS2.get_bot_init_section_lines("ZergMain")
+    lines = BIS2.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()
-
+ 
     C1, C2 = BotInitSection.crossover(BIS, BIS2, parameters)
     print("c1:------")
-    lines = C1.get_bot_init_section_lines("ZergMain")
+    lines = C1.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()
-    
+     
     print("c2:------")
-    lines = C2.get_bot_init_section_lines("ZergMain")
+    lines = C2.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()
-
+ 
     # Test Mutation:
     C2.mutate(parameters)
-    lines = C2.get_bot_init_section_lines("ZergMain")
+    lines = C2.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()

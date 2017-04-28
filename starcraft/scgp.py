@@ -111,5 +111,5 @@ if SAVE_POPULATIONS:
 
 # Create .cpps:
 for i in range(len(pops[0])):
-    pops[0][i].write_lines(output_dir="../zSources/", class_name="ZergMain-{}".format(i))
+    pops[0][i].write_lines(output_dir="../zSources/", class_name="TerranMain-{}".format(i))
     

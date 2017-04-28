@@ -36,7 +36,7 @@ class ReportBasedFitness(FitnessFunction):
         """Set parameters."""
 
         super(ReportBasedFitness, self).__init__(parameters)
-        self.output_dir = r"C:\TM\TournamentManager\server\"
+        self.output_dir = r"C:\TM\TournamentManager\server"
         self.game_time_limit = parameters.INIT_TIME_LIMIT
 
     def do_raw_fitness(self, X):

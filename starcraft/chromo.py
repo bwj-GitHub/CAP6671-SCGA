@@ -159,10 +159,10 @@ if __name__ == "__main__":
     parameters = Parameters()
     SCC = SCStrategyChromo.get_new_chromo(parameters)
     SCC.get_new_chromo(parameters)
-    lines = SCC.get_lines("ZergMain")
+    lines = SCC.get_lines("TerranMain")
     for line in lines:
         print(line)
     SCStrategyChromo.mutate(SCC, parameters)
-    lines = SCC.get_lines("ZergMain")
+    lines = SCC.get_lines("TerranMain")
     for line in lines:
         print(line)
