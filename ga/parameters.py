@@ -7,6 +7,7 @@ Created on Apr 16, 2017
 
 from random import Random
 
+
 class Parameters(object):
     """Holds parameters for various components of a GA."""
 
@@ -18,18 +19,24 @@ class Parameters(object):
         self.SELECTION_TYPE = selection_type
         self.RAND = rand_gen
         self.VERBOSITY = verbosity
-        self.MUT_RATE = .99
+        self.MUT_RATE = .75
         self.LOG_DIR = kwargs.get("log_out", "./LOGS/")
+        self.N_EVALS = kwargs.get("n_evals", None)  # if None, go for specified its
+        self.next_id = 0
 
         # Tournament Selection parameters:
         self.TOURNAMENT_SIZE = kwargs.get("tournament_size", 2)
         self.TOURNAMENT_P = kwargs.get("tournament_p", .95)
 
-        # Misc. Parameters (TODO: move these to subclass?):
+        # StarCraft. Parameters (TODO: move these to subclass?):
         self.BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
         self.DLL_DIR = "./"
 
-        self.next_id = 0
+        self.INIT_TIME_LIMIT = 480  # in seconds
+        self.TIME_DELTA_AFTER = 128 * 60  #(128 minutes)
+        self.TIME_DELTA = 240  # in seconds
+        self.EXP_TIME_LIMIT = 384 * 60  # (384 minutes)
+
 
     def get_new_id(self):
         """Return a unique ID for a Chromo.

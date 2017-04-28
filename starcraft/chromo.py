@@ -114,11 +114,10 @@ class SCStrategyChromo(Chromo):
         # TODO: Indicate what the "original GP bot" is referring to.
         """
 
-        if parameters.VERBOSITY > 0:
-            print("Mutating chromo {}".format(X.id))
-
         r = parameters.RAND.random()
         if r < parameters.MUT_RATE:
+            if parameters.VERBOSITY > 1:
+                print("Mutating chromo {}".format(X.id))
             # Mutate the BuildPlan and/or Rules
             r = parameters.RAND.random()
             if r < .75:
