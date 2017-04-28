@@ -81,13 +81,14 @@ class ComputeActionsSection(object):
         """
 
         # Add constant init lines:
+
+    
         lines = [
                  "void {}::computeActions()".format(class_name),
                  "{",
                  "\tcomputeActionsBase();",
-                 "\tnoWorkers = AgentManager::getInstance()->countNoBases() * 6 " \
-                        "+ AgentManager::getInstance()->countNoUnits(" \
-                        "UnitTypes::Terran_Refinery) * 3;",
+                 "\tnoWorkers = 12 * AgentManager::getInstance()->countNoFinishedUnits(UnitTypes::Terran_Command_Center) + 2 * AgentManager::getInstance()->countNoFinishedUnits(UnitTypes::Terran_Refinery);",
+                 "\tif (noWorkers > 30) noWorkers = 30;",
                  "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
                  "\tint min = Broodwar->self()->minerals();",
                  "\tint gas = Broodwar->self()->gas();",

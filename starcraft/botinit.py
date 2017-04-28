@@ -71,7 +71,7 @@ class BotInitSection(object):
         lines.extend(["\t"+line for line in self.buildplan.get_lines()])
         lines.append("\n\t// SquadInit subsection:")
         lines.extend(["\t"+line for line in self.squad_init.get_lines()])
-        lines.extend(["\tnoWorkers = 11;", "\tnoWorkersPerRefinery = 3;", "}"])
+        lines.extend(["\tnoWorkers = 8;", "\tnoWorkersPerRefinery = 2;", "}"])
         return lines
 
     @staticmethod

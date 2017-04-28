@@ -125,11 +125,8 @@ class SCStrategyChromo(Chromo):
             if parameters.VERBOSITY > 1:
                 print("Mutating chromo {}".format(X.id))
             # Mutate the BuildPlan and/or Rules
-            r = parameters.RAND.random()
-            if r < .75:
-                X.BIS.mutate(parameters)
-            if r > .25:
-                X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads(), parameters)
+            X.BIS.mutate(parameters)
+            X.CAS.mutate(X.BIS.get_buildplan(), X.BIS.get_squads(), parameters)
 
     @staticmethod
     def crossover(X1, X2, parameters):

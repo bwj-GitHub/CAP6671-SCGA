@@ -78,11 +78,12 @@ def load_population(filename, parameters):
 
 # Prepare GA:
 params = Parameters(verbosity=2,
-                    population_size=8,
+                    population_size=6,
                     n_evals = N_EVALS,
                     init_time_limit = INIT_TIME_LIMIT,
                     time_delta_after = TIME_DELTA_AFTER,
-                    time_delta = TIME_DELTA
+                    time_delta = TIME_DELTA,
+                    max_problem=False
                     )
 if DEBUG:
     problem = LineCountFitness(params)  # dummy fitness function for testing
@@ -100,7 +101,7 @@ else:
     init_pop = None
 
 # Run the experiment:
-pops, run_stats = SSGA.experiment(population=init_pop, iterations=1, runs=1)
+pops, run_stats = SSGA.experiment(population=init_pop, iterations=10, runs=1)
 print(run_stats)
 
 # Save population(s):
