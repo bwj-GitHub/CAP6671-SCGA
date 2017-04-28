@@ -43,7 +43,7 @@ class SteadyStateGA(object):
                     [("{} (F={})".format(c.id, c.raw_fitness)) for c in chromos]))
         return chromos[0:N]
 
-    def run(self, population=None, iterations=100):
+    def run(self, population=None, iterations=100, log_dir=None):
         """Brief descript. of what this method does."""
 
         n_evals = 0

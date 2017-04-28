@@ -32,10 +32,9 @@ class Parameters(object):
         self.BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
         self.DLL_DIR = "./"
 
-        self.INIT_TIME_LIMIT = 480  # in seconds
-        self.TIME_DELTA_AFTER = 128 * 60  #(128 minutes)
-        self.TIME_DELTA = 240  # in seconds
-        self.EXP_TIME_LIMIT = 384 * 60  # (384 minutes)
+        self.INIT_TIME_LIMIT = kwargs.get("init_time_limit", 480)  # default: 8m
+        self.TIME_DELTA_AFTER = kwargs.get("time_delta_after", 24)  # default 24 evals
+        self.TIME_DELTA = kwargs.get("time_delta", 480)  # default +8m
 
 
     def get_new_id(self):

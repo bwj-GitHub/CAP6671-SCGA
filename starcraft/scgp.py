@@ -13,7 +13,7 @@ IMPORTANT: Requires OpeningTest, OpprimoBot is not sufficient!
 import pickle
 import time
 
-from ga.fitness import FitnessFunction, Selector  # temporary, for testing.
+from ga.fitness import Selector  # temporary, for testing.
 from ga.parameters import Parameters
 from ga.ssga import SteadyStateGA
 from starcraft.chromo import SCStrategyChromo
@@ -21,6 +21,28 @@ from starcraft.fitness import ReportBasedFitness, LineCountFitness
 
 
 DEBUG = True
+SAVE_POPULATIONS = True
+EXP_NUM = 2  # 1 - control, 2 - increase time limit
+
+# EXP Parameters:
+BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
+DLL_DIR = "./"  # TODO: Change this!
+
+# Each of these experiments requires ~384 minutes to evaluate sequentially;
+#  each evaluation is assumed to be only a single game.
+if EXP_NUM == 1:  # EXP 1:
+    N_EVALS = 24
+    INIT_TIME_LIMIT = 960  # constant 16 minute cap
+    TIME_DELTA_AFTER = None  # do not increase time limit
+    TIME_DELTA = None
+elif EXP_NUM == 2:  # EXP 2:
+    N_EVALS = 36
+    INIT_TIME_LIMIT = 480  # Begin with 8 minute cap
+    TIME_DELTA_AFTER = 24  # After 24 evals, increase cap by...
+    TIME_DELTA = 480       # ... 8 minutes (16 minutes total)
+
+# Initial Population?
+INIT_POPULATION = None  # specify filename
 
 
 def save_population(population, dir_):
@@ -53,32 +75,36 @@ def load_population(filename, parameters):
     parameters.next_id = max_int_seen + 1
     return init_pop
 
-
-# To save time, we'll create a single initial population for use in
-#  all experiments!
-# ~6hr eval (384 mins): 192 minutes at 8min games, 192 minutes at 16 minute games
-N_EVALS = 36  # 24 with 8min cap, 12 with 16 minute cap
-
-
-# TODO: Load parameters from config file.
+# Prepare GA:
 params = Parameters(verbosity=2,
                     population_size=8,
-                    n_evals = N_EVALS)  # Default parameters are fine
+                    n_evals = N_EVALS,
+                    init_time_limit = INIT_TIME_LIMIT,
+                    time_delta_after = TIME_DELTA_AFTER,
+                    time_delta = TIME_DELTA
+                    )
 if DEBUG:
-    problem = LineCountFitness(params)  # Just use dummy fitness function for testing
+    problem = LineCountFitness(params)  # dummy fitness function for testing
 else:
     problem = ReportBasedFitness(params)
 selector = Selector(params)
-
 SSGA = SteadyStateGA(chromo_cls=SCStrategyChromo, problem=problem,
                      selector=selector, parameters=params)
 
-init_pop = load_population("../zPopulations/population_1493345315.p", params)
-print(init_pop[0].raw_fitness)
-init_pop[1].write_lines("../zSources/", "ZergMain")
+# Load Intial Population (?):
+if INIT_POPULATION is not None:
+    print("Loading initial population...")
+    init_pop = load_population(INIT_POPULATION, params)
+else:
+    init_pop = None
 
-pops, run_stats = SSGA.experiment(population=init_pop, iterations=5, runs=5)
-
-
-# save_population(pops[0], dir_="../zPopulations/")
+# Run the experiment:
+pops, run_stats = SSGA.experiment(population=init_pop, iterations=20, runs=5)
 print(run_stats)
+
+# Save population(s):
+if SAVE_POPULATIONS:
+    print("Saving population...")
+    for i in range(len(pops)):
+        save_population(pops[i], dir_="../zPopulations/")
+    
