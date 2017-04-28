@@ -9,24 +9,7 @@ import sys
 import subprocess
 import csv
 from ga.fitness import FitnessFunction
-
-
-class LineCountFitness(FitnessFunction):
-    """A fitness function for testing; goal: maximize number of lines."""
-
-    def __init__(self, parameters):
-        """Set parameters."""
-
-        super(LineCountFitness, self).__init__(parameters)
-        self.output_dir = parameters.DLL_DIR
-
-    def do_raw_fitness(self, X):
-        """Calculate and set the raw fitness score of Chromo X."""
-
-        FitnessFunction.do_raw_fitness(self, X)
-        X.raw_fitness = len(X.get_lines())
-        print("EVAL #{}".format(self.n_evals))
-        self.n_evals += 1
+from chromo import SCStrategyChromo
 
 
 class ReportBasedFitness(FitnessFunction):
@@ -36,21 +19,16 @@ class ReportBasedFitness(FitnessFunction):
         """Set parameters."""
 
         super(ReportBasedFitness, self).__init__(parameters)
-        self.output_dir = r"C:\TM\TournamentManager\server\"
-        self.game_time_limit = parameters.INIT_TIME_LIMIT
+        self.output_dir = r"C:\TM\TournamentManager\server"
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
 
         FitnessFunction.do_raw_fitness(self, X)
 
-        # Check if game time limit should increase:
-        if self.n_evals > 0 and self.n_evals % self.parameters.TIME_DELTA_AFTER == 0:
-            self.game_time_limit += self.parameters.TIME_DELTA
-
         # Compile, play tournament, parse results files, and chew bubble-gum:
         path_to_dll = compile_bot(X, self.output_dir)
-        results_file = execute_tournament(path_to_dll, self.game_time_limit)
+        results_file = execute_tournament(path_to_dll)
         results = parse_results_file(results_file)
         ## can't find bubble-gum :'(
 
@@ -62,7 +40,6 @@ class ReportBasedFitness(FitnessFunction):
         fitness += W[3] * results["time_to_loss"]
         fitness += W[4] * results["relative_economy"]
         X.raw_fitness = fitness
-        self.n_evals += 1
 
 
 def compile_bot(X, output_dir):
@@ -81,9 +58,13 @@ def compile_bot(X, output_dir):
 
     :return: str; the path to .dll, if build was successful, else None.
     """
-    # TODO:
-    # Generate .cpp file(s) and add to visual studio project
+    # Add .cpp to project
+    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Commander\Zerg", "ZergMain")
 
+    # Create .cpp file storage for later
+    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Strategies", "ZergMain" + "Bot{}".format(X.id))
+	
+    # Build settings
     msbuild = r"C:\Program Files (x86)\MSBuild\12.0\Bin\MSBuild.exe"      
     project = r"C:\TM\SCGABot\SCProjects\SCProjects.sln"
     rebuild = '/t:Rebuild'
@@ -97,7 +78,7 @@ def compile_bot(X, output_dir):
     # Specify project to build
     command.append(project)
     # Specify build type
-    #command.append(rebuild)
+    command.append(rebuild)
     # Specify target architecture
     command.append(win32)
     # Specify relase type
@@ -133,15 +114,11 @@ def compile_bot(X, output_dir):
         return None
 
 
-def execute_tournament(path_to_dll, game_time_limit=None):
+def execute_tournament(path_to_dll):
     """Play several games of starcraft with bot at path_to_dll.
     
     :param path_to_dll: str; path to .dll for StarCraft bot to
         be executed.
-
-	:param game_time_limit: int or None; specifies the maximum
-        time that a game will be played (in seconds) before it
-        is forced to end; if None, there is no limit.
 
     :return: str; path to tournament statistics directory
     """
@@ -178,7 +155,7 @@ def execute_tournament(path_to_dll, game_time_limit=None):
     #   Rewrite results name
     with open(path_to_settings, 'r') as file:
         data = file.readlines()
-        data[19] = "Bot  " + bot_name + "        Zerg  dll  BWAPI_412\n"
+        data[19] = "Bot  " + bot_name + "        Terran  dll  BWAPI_412\n"
         data[82] = "GamesListFile games" + bot_name + ".txt\n"
         data[89] = "ResultsFile results" + bot_name + ".txt\n"
 
@@ -202,39 +179,32 @@ def execute_tournament(path_to_dll, game_time_limit=None):
         sys.stdout.flush()        
     output = process.communicate()[0]
 
-    return path_to_bot_write
+    results_file = r"C:\TM\TournamentManager\server" + "\\" + bot_name + ".txt\n"
+    return results_file
 
 
-def parse_results_file(path_to_results):
+def parse_results_file(results_file):
     """."""
-    results = {}
-    results['unit_score'] = 0
-    results['building_score'] = 0
-    results['kill_score'] = 0
-    games_counter = 0
-    for filename in os.listdir(path_to_results):
-        if (filename.endswith('.csv')):
-            games_counter += 1
-            with open(path_to_results + "\\" + filename, 'r') as file:
-                reader = csv.reader(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_ALL)
-                for row in reader:
-                    self_race = row[0]
-                    enemy_race = row[1]
-                    game_map = row[2]
-                    result = row[3]
-                    unit_score = int(row[4])
-                    building_score = int(row[5])
-                    kill_score = int(row[6])
+    score = 0
+    with open(results_file, 'r') as file:
+        for i, line in enumerate(file):
+            if (i % 2 == 0):
+                continue
+            stats = line.split()
+            home = stats[2]
+            away = stats[3]
+            game_map = stats[4]
+            hostwon = stats[5]
+            hostcrash = stats[6]
+            opponentcrash = stats[7]
+            draw = stats[8]
+            hostscore = int(stats[9])
+            opponentscore = int(stats[1])
 
-                    results['enemy_race'] = enemy_race
-                    results['result'] = result
-                    results['unit_score'] += unit_score
-                    results['building_score'] += building_score
-                    results['kill_score'] += kill_score
-
-    results['unit_score'] /= games_counter
-    results['building_score'] /= games_counter
-    results['kill_score'] /= games_counter                             
+            if (hostwon == 'true'):
+                score += 1
+            elif (hostwon == 'false' and draw == 'false' or hostcrash == 'true'):
+                score -= 1
         
-    return results
+    return score
         
