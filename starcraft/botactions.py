@@ -7,7 +7,7 @@ Created on Apr 23, 2017
 
 from ga.chromo import single_point_crossover
 from ga.parameters import Parameters
-from starcraft.units import ZergUnits
+from starcraft.units import TerranUnits
 from starcraft.botinit import BuildPlan, SquadInit, BotInitSection
 
 
@@ -74,20 +74,22 @@ class ComputeActionsSection(object):
         
         # Correct stage variables (if necessary):
         self._correct_stage()
+        self._correct_rules(buildplan, squads, parameters)
 
-    def get_compute_actions_section_lines(self, class_name="ZergMain"):
+    def get_compute_actions_section_lines(self, class_name="TerranMain"):
         """Return a list of lines representing the computeActions method
              of a Strategy class in OpprimoBot.
         """
 
         # Add constant init lines:
+
+    
         lines = [
                  "void {}::computeActions()".format(class_name),
                  "{",
                  "\tcomputeActionsBase();",
-                 "\tnoWorkers = AgentManager::getInstance()->countNoBases() * 6 " \
-                        "+ AgentManager::getInstance()->countNoUnits(" \
-                        "UnitTypes::Zerg_Extractor) * 3;",
+                 "\tnoWorkers = 12 * AgentManager::getInstance()->countNoFinishedUnits(UnitTypes::Terran_Command_Center) + 2 * AgentManager::getInstance()->countNoFinishedUnits(UnitTypes::Terran_Refinery);",
+                 "\tif (noWorkers > 30) noWorkers = 30;",
                  "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
                  "\tint min = Broodwar->self()->minerals();",
                  "\tint gas = Broodwar->self()->gas();",
@@ -207,19 +209,19 @@ class Rule(object):
                 if macro[1] in buildplan:
                     continue
                 # Determine type of build
-                if macro[1] in ZergUnits.BUILDING_REQS.keys():
-                    reqs = ZergUnits.BUILDING_REQS[macro[1]]
-                elif macro[1] in ZergUnits.UPGRADE_REQS.keys():
-                    reqs = ZergUnits.UPGRADE_REQS[macro[1]]
+                if macro[1] in TerranUnits.BUILDING_REQS.keys():
+                    reqs = TerranUnits.BUILDING_REQS[macro[1]]
+                elif macro[1] in TerranUnits.UPGRADE_REQS.keys():
+                    reqs = TerranUnits.UPGRADE_REQS[macro[1]]
                 else:
-                    reqs = ZergUnits.TECH_REQS[macro[1]]
+                    reqs = TerranUnits.TECH_REQS[macro[1]]
                 # Check for reqs:
                 if reqs is not None and reqs[0] not in buildplan:
                     continue
                 else:
                     new_macros.append(macro)
             else:  # squad macro
-                if macro[1][1]-1 >= len(squads):  # squad doesn't exist
+                if macro[1][1]-1 >= len(squads)-2:  # squad doesn't exist
                     continue
                 else:
                     new_macros.append(macro)
@@ -255,7 +257,7 @@ class Rule(object):
             for req in self.unit_reqs:
                 units_str += " && AgentManager::getInstance()" \
                         "->countNoFinishedUnits({}) > {}".format(
-                        ZergUnits.get_full_name(req[0]), req[1])
+                        TerranUnits.get_full_name(req[0]), req[1])
 
         # check enemy units?
         if self.enemy_has is not None:
@@ -334,11 +336,12 @@ class Rule(object):
     def _u_no_(u_type, parameters):
         """Return an appropriate count for u_type."""
 
-        # Expensive units, not likely to have more than 6
-        if u_type in ["Zerg_Ultralisk", "Zerg_Queen", "Zerg_Defiler"]:
+        # Expensive/Support units, not likely to have more than 6
+        if u_type in ["Terran_Battlecruiser", "Terran_Siege_Tank_Tank_Mode",
+                      "Terran_Science_Vessel", "Terran_Dropship"]:
             return parameters.RAND.randint(0, 6) % 6
         # Very cheap unit, likely to have many of these
-        if u_type == "Zerg_Zergling":
+        if u_type == "Terran_Marine":
             return parameters.RAND.randint(10, 30)
         # Not sure about other units, let GA take care of that!
         return parameters.RAND.randint(0, 21) % 20
@@ -361,7 +364,7 @@ class Rule(object):
 
             buildings = []
             for b in buildplan:
-                if b in ZergUnits.BUILDING_REQS.keys():
+                if b in TerranUnits.BUILDING_REQS.keys():
                     buildings.append(b)
             return buildings
 
@@ -377,10 +380,8 @@ class Rule(object):
             r = parameters.RAND.random()
             if r < .5:  # check for some building:
                 u_type = buildings[parameters.RAND.randint(0, len(buildings)-1)]
-                if u_type == "Zerg_Hatchery":
-                    u_count = parameters.RAND.randint(0, 2)
-                else:
-                    u_count = 0  # Not much reason to have multiple of other buildings
+                u_count = parameters.RAND.randint(0, 3)
+
             else:       # check for some unit:
                 u_type = units[parameters.RAND.randint(0, len(units)-1)]
                 u_count = Rule._u_no_(u_type, parameters)
@@ -446,7 +447,7 @@ class Rule(object):
 
         # Chose type:
         m_type = ["building", "tech", "upgrade"][parameters.RAND.randint(0, 2)]
-        m_unit = ZergUnits.next_on_buildplan(buildplan, parameters, type_=m_type)
+        m_unit = TerranUnits.next_on_buildplan(buildplan, parameters, type_=m_type)
         # NOTE: m_unit might still be building, even if m_type is not.
         return ("build", m_unit)
 
@@ -485,18 +486,18 @@ class Rule(object):
             u = parameters.RAND.randint(0, len(s_units)-1)  # choose unit
             d_count = parameters.RAND.randint(1, s_counts[u])
             m_parameters = ("{}->removeSetup({}, {});",
-                            ZergUnits.get_full_name(s_units[u]), d_count)
+                            TerranUnits.get_full_name(s_units[u]), d_count)
 
         elif m_type == 2:  # addSetup()
             # Add some number of some unit that can be built given buildplan:
-            u_type = parameters.RAND.choice(ZergUnits.get_available_units(buildplan))
-            if u_type not in ["Zerg_Zergling", "Zerg_Hydralisk", "Zerg_Mutalisk",
-                                          "Zerg_Scourge"]:
+            u_type = parameters.RAND.choice(TerranUnits.get_available_units(buildplan))
+            if u_type not in ["Terran_Marine", "Terran_Firebat", "Terran_Wraith",
+                                          "Terran_Medic"]:
                 u_count = 1 + parameters.RAND.randint(0, 9) % 8
             else:
                 u_count = 2 * parameters.RAND.randint(1, 12)
             m_parameters = ("{}->addSetup({}, {});",
-                            ZergUnits.get_full_name(u_type), u_count)
+                            TerranUnits.get_full_name(u_type), u_count)
 
         elif m_type == 3:   # setBuildup()
             m_parameters = ("{}->setBuildup({});",
@@ -590,22 +591,22 @@ if __name__ == "__main__":
             BIS2.squad_init.squads, parameters)
 
     # Print 1:
-    lines = BIS.get_bot_init_section_lines("ZergMain")
+    lines = BIS.get_bot_init_section_lines("TerranMain")
     for line in lines:
         print(line)
     print()
-    ca_lines = CAS.get_compute_actions_section_lines("ZergMain")
+    ca_lines = CAS.get_compute_actions_section_lines("TerranMain")
     print()
     for line in ca_lines:
         print(line)
     print()
 
     # Print 2:
-    lines = BIS2.get_bot_init_section_lines("ZergMain2")
+    lines = BIS2.get_bot_init_section_lines("TerranMain2")
     for line in lines:
         print(line)
     print()
-    ca_lines = CAS2.get_compute_actions_section_lines("ZergMain2")
+    ca_lines = CAS2.get_compute_actions_section_lines("TerranMain2")
     print()
     for line in ca_lines:
         print(line)

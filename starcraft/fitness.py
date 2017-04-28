@@ -20,6 +20,7 @@ class ReportBasedFitness(FitnessFunction):
 
         super(ReportBasedFitness, self).__init__(parameters)
         self.output_dir = r"C:\TM\TournamentManager\server"
+        self.game_time_limit = parameters.INIT_TIME_LIMIT
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
