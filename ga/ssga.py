@@ -126,6 +126,7 @@ class SteadyStateGA(object):
         avg_avg_fitness = 0
         avg_std_fitness = 0
         for i in range(runs):
+            self.problem.n_evals = 0  # Reset the number of evals
             if self.verbosity > 0:
                 print("*** RUN {} ***".format(i))
             use_pop = None if population is None else population.copy()

@@ -22,7 +22,7 @@ from starcraft.fitness import ReportBasedFitness, LineCountFitness
 
 DEBUG = True
 SAVE_POPULATIONS = True
-EXP_NUM = 2  # 1 - control, 2 - increase time limit
+EXP_NUM = 2  # 1 - control, 2 - increase time limit halfway
 
 # EXP Parameters:
 BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this

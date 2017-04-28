@@ -12,6 +12,7 @@ class FitnessFunction(object):
 
     def __init__(self, parameters):
         self.parameters = parameters
+        self.n_evals = 0  # Track the number of evals
 
     def do_raw_fitness(self, X):
         if self.parameters.VERBOSITY > 1:

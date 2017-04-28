@@ -24,6 +24,8 @@ class LineCountFitness(FitnessFunction):
 
         FitnessFunction.do_raw_fitness(self, X)
         X.raw_fitness = len(X.get_lines())
+        print("EVAL #{}".format(self.n_evals))
+        self.n_evals += 1
 
 
 class ReportBasedFitness(FitnessFunction):
@@ -34,15 +36,20 @@ class ReportBasedFitness(FitnessFunction):
 
         super(ReportBasedFitness, self).__init__(parameters)
         self.output_dir = parameters.DLL_DIR
+        self.game_time_limit = parameters.INIT_TIME_LIMIT
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
 
         FitnessFunction.do_raw_fitness(self, X)
 
+        # Check if game time limit should increase:
+        if self.n_evals > 0 and self.n_evals % self.parameters.TIME_DELTA_AFTER == 0:
+            self.game_time_limit += self.parameters.TIME_DELTA
+
         # Compile, play tournament, parse results files, and chew bubble-gum:
         path_to_dll = compile_bot(X, self.output_dir)
-        results_file = execute_tournament(path_to_dll)
+        results_file = execute_tournament(path_to_dll, self.game_time_limit)
         results = parse_results_file(results_file)
         ## can't find bubble-gum :'(
 
@@ -54,6 +61,7 @@ class ReportBasedFitness(FitnessFunction):
         fitness += W[3] * results["time_to_loss"]
         fitness += W[4] * results["relative_economy"]
         X.raw_fitness = fitness
+        self.n_evals += 1
 
 
 def compile_bot(X, output_dir):
@@ -124,15 +132,19 @@ def compile_bot(X, output_dir):
         return None
 
 
-def execute_tournament(path_to_dll):
+def execute_tournament(path_to_dll, game_time_limit=None):
     """Play several games of starcraft with bot at path_to_dll.
     
     :param path_to_dll: str; path to .dll for StarCraft bot to
         be executed.
 
+    :param game_time_limit: int or None; specifies the maximum
+        time that a game will be played (in seconds) before it
+        is forced to end; if None, there is no limit.
+
     :return: str; path to tournament results file.
     """
-
+        
     raise NotImplementedError()
 
 
