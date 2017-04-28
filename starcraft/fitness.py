@@ -7,6 +7,7 @@ Created on Apr 14, 2017
 import os
 import sys
 import subprocess
+import csv
 from ga.fitness import FitnessFunction
 
 
@@ -17,7 +18,7 @@ class ReportBasedFitness(FitnessFunction):
         """Set parameters."""
 
         super(ReportBasedFitness, self).__init__(parameters)
-        self.output_dir = parameters.DLL_DIR
+        self.output_dir = r"C:\TM\TournamentManager\server\"
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
@@ -72,7 +73,7 @@ def compile_bot(X, output_dir):
     # Specify project to build
     command.append(project)
     # Specify build type
-    command.append(rebuild)
+    #command.append(rebuild)
     # Specify target architecture
     command.append(win32)
     # Specify relase type
@@ -114,14 +115,69 @@ def execute_tournament(path_to_dll):
     :param path_to_dll: str; path to .dll for StarCraft bot to
         be executed.
 
-    :return: str; path to tournament results file.
+    :return: str; path to tournament statistics directory
     """
+    path_to_settings= r"C:\TM\TournamentManager\server\server_settings.ini"
+    path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script.bat"
+    path_to_local_client = r"C:\TM\TournamentManager\client\run_local_client_from_script.bat"
+    path_to_vm_client = r"C:\TM\TournamentManager\client\run_vm_client_from_script.bat"
+    bot_name = path_to_dll.split("\\")[-1][:-4]
 
-    raise NotImplementedError()
+    # Create directories of new bot
+    path_to_bot = r"C:\TM\TournamentManager\server\bots" + "\\" + bot_name
+    if not os.path.exists(path_to_bot):
+        os.makedirs(path_to_bot)
+
+    path_to_bot_ai = path_to_bot + r"\AI"
+    if not os.path.exists(path_to_bot_ai):
+        os.makedirs(path_to_bot_ai)
+
+    path_to_bot_read = path_to_bot + r"\read"
+    if not os.path.exists(path_to_bot_read):
+        os.makedirs(path_to_bot_read)
+
+    path_to_bot_write = path_to_bot + r"\write"
+    if not os.path.exists(path_to_bot_write):
+        os.makedirs(path_to_bot_write)
+
+    # Move .dll to appropriate location
+    path_to_new_dll = path_to_bot_ai + "\\" + path_to_dll.split("\\")[-1]
+    os.rename(path_to_dll, path_to_new_dll)
+
+    # Edit settings as follows:
+    #   Rewrite bot name
+    #   Rewrite games list name
+    #   Rewrite results name
+    with open(path_to_settings, 'r') as file:
+        data = file.readlines()
+        data[19] = "Bot  " + bot_name + "        Zerg  dll  BWAPI_412\n"
+        data[82] = "GamesListFile games" + bot_name + ".txt\n"
+        data[89] = "ResultsFile results" + bot_name + ".txt\n"
+
+    with open(path_to_settings, 'w') as file:
+        file.writelines(data)
+
+    # Launch Local client
+    process = subprocess.Popen([path_to_local_client], shell=True)
+    
+    # Launch VM Client1
+    process = subprocess.Popen([path_to_vm_client], shell=True)
+
+    # Launch Server
+    process = subprocess.Popen([path_to_server], shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    while True:
+        nextline = process.stdout.readline()
+        if nextline == b'' and process.poll() != None:
+            break
+        sys.stdout.write(nextline.decode('cp949'))      # adjust the codepage for your console
+        sys.stdout.flush()        
+    output = process.communicate()[0]
+
+    return path_to_bot_write
 
 
-def parse_results_file(filename):
+def parse_results_file(path_to_results):
     """."""
-
     raise NotImplementedError()
         
