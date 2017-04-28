@@ -207,5 +207,34 @@ def execute_tournament(path_to_dll, game_time_limit=None):
 
 def parse_results_file(path_to_results):
     """."""
-    raise NotImplementedError()
+    results = {}
+    results['unit_score'] = 0
+    results['building_score'] = 0
+    results['kill_score'] = 0
+    games_counter = 0
+    for filename in os.listdir(path_to_results):
+        if (filename.endswith('.csv')):
+            games_counter += 1
+            with open(path_to_results + "\\" + filename, 'r') as file:
+                reader = csv.reader(file, delimiter=";", quotechar='"', quoting=csv.QUOTE_ALL)
+                for row in reader:
+                    self_race = row[0]
+                    enemy_race = row[1]
+                    game_map = row[2]
+                    result = row[3]
+                    unit_score = int(row[4])
+                    building_score = int(row[5])
+                    kill_score = int(row[6])
+
+                    results['enemy_race'] = enemy_race
+                    results['result'] = result
+                    results['unit_score'] += unit_score
+                    results['building_score'] += building_score
+                    results['kill_score'] += kill_score
+
+    results['unit_score'] /= games_counter
+    results['building_score'] /= games_counter
+    results['kill_score'] /= games_counter                             
+        
+    return results
         
