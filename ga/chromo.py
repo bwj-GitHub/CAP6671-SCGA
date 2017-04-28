@@ -10,6 +10,7 @@ class Chromo(object):
 
     def __init__(self, chromo_id):
         self.id = chromo_id
+        self.raw_fitness = None
 
     def clone(self, parameters):
         """Return a Chromo nearly identical self, with a new id."""
@@ -34,15 +35,9 @@ def single_point_crossover(L1, L2, rand_gen):
 
     L_bp = min(len(L1), len(L2))  # Choose point within length of shortest list.
     cross_point = rand_gen.randint(0, L_bp-1)
-    print("--------")
-    print(L1)
-    print(L2)
-    print("x-over at {}".format(cross_point))
     temp = L1[cross_point:]
     L1 = L1[0:cross_point] + L2[cross_point:]
     L2 = L2[0:cross_point] + temp
-    print(L1)
-    print(L2)
     return L1, L2  # In case the operations are not performed in place
 
 

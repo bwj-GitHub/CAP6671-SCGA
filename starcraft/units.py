@@ -143,6 +143,8 @@ class ZergUnits:
         """
 
         def check_reqs(item, reqs):
+            """Check that all requirements of item are satisfied."""
+
             if reqs is None:
                 return item
             else:
@@ -153,7 +155,7 @@ class ZergUnits:
                 if to_add is True:
                     return item
             return None
-        
+
         missing = []
         # Create a list of what is missing (and can be built):
         # check upgrades:

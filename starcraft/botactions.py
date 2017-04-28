@@ -35,6 +35,12 @@ class ComputeActionsSection(object):
             elif stage == s:
                 s += 1
 
+    def _correct_rules(self, buildplan, squads, parameters):
+        """Change rules to reflect changes in buildplan and/or squads."""
+
+        for rule in self.rules:
+            rule.correct_rule(buildplan, squads, parameters)
+
 
     def clone(self):
         """Return a deep copy of this ComputeActionsSections."""
@@ -50,7 +56,7 @@ class ComputeActionsSection(object):
         """
 
         # Determine some number of rules to mutate:
-        n_muts = parameters.randint(1, 3)
+        n_muts = parameters.RAND.randint(1, 3)
         for _ in range(n_muts):
             R = len(self.rules)
             r = parameters.RAND.random()
@@ -73,7 +79,7 @@ class ComputeActionsSection(object):
         """Return a list of lines representing the computeActions method
              of a Strategy class in OpprimoBot.
         """
-    
+
         # Add constant init lines:
         lines = [
                  "void {}::computeActions()".format(class_name),
@@ -85,18 +91,18 @@ class ComputeActionsSection(object):
                  "\tint cSupply = Broodwar->self()->supplyUsed() / 2;",
                  "\tint min = Broodwar->self()->minerals();",
                  "\tint gas = Broodwar->self()->gas();",
-                 
-                 "\t// Additional code to observe the enemy, based on code from",
-                 "\t//  OpeningTest fork of OpprimoBot by andertavares:",
-                 "\tSpottedObjectSet& enemyUnits = explorationManager" \
-                    "->getSpottedUnits();",
+
+#                  "\t// Additional code to observe the enemy, based on code from",
+#                  "\t//  OpeningTest fork of OpprimoBot by andertavares:",
+#                  "\tSpottedObjectSet& enemyUnits = ExplorationManager::getInstance()" \
+#                     "->getSpottedUnits();",
                 "\n\t//Rules Subsections:"
                  ]
-    
+
         # Add lines for each Rule:
         for rule in self.rules:
             lines.extend(["\t"+line for line in rule.get_lines()])
-    
+
         # Complete Section and return lines:
         lines.append("}")
         return lines
@@ -109,18 +115,10 @@ class ComputeActionsSection(object):
 
         C1 = X1.clone()
         C2 = X2.clone()
-        print("%%%%%%%%%%")
-        print(C1.rules)
-        print("*")
-        print(C2.rules)
         C1.rules, C2.rules = single_point_crossover(C1.rules, C2.rules,
                                                       parameters.RAND)
         C1._correct_stage()
         C2._correct_stage()
-        print("___________-_________")
-        print(C1.rules)
-        print("*")
-        print(C2.rules)
         return C1, C2
 
     @staticmethod
@@ -296,8 +294,8 @@ class Rule(object):
         ri = parameters.RAND.randint(0, 100)
         if ri % 2 == 0:
             self.minerals += 25 * parameters.RAND.randint(-5, 5)
-        else:
-            self.enemy_has = self._get_enemy_has(parameters, 1)
+#         else:
+#             self.enemy_has = self._get_enemy_has(parameters, 1)
         if ri < 20:
             self.gas += 15 * parameters.RAND.randint(-5, 5)
         if ri % 20 == 0:
@@ -354,15 +352,31 @@ class Rule(object):
         added by previous Rules.
         """
 
+        def filter_buildplan(buildplan):
+            """Return a list of Buildings in buildplan.
+
+            buildplan containts a mixture of buildings, upgrades,
+            and tech.
+            """
+
+            buildings = []
+            for b in buildplan:
+                if b in ZergUnits.BUILDING_REQS.keys():
+                    buildings.append(b)
+            return buildings
+
+        # Filter buildplan and determine number of units to check for:
+        buildings = filter_buildplan(buildplan)  # ignore upgrades/tech
         unit_reqs = []
-        n_units = 1+ parameters.RAND.randint(0, 3) % 3  # favor 1
+        n_units = 1 + parameters.RAND.randint(0, 3) % 3  # favor 1
         u_track = []  # track units already added
+
         # Create n_units unit reqs:
         for _ in range(n_units):
             # Check for some building or unit:
             r = parameters.RAND.random()
             if r < .5:  # check for some building:
-                u_type = buildplan[parameters.RAND.randint(0, len(buildplan)-1)]
+                u_type = buildings[parameters.RAND.randint(0, len(buildings)-1)]
                 if u_type == "Zerg_Hatchery":
                     u_count = parameters.RAND.randint(0, 2)
                 else:
@@ -376,7 +390,7 @@ class Rule(object):
             u_track.append(u_type)
             unit_reqs.append((u_type, u_count))
         return unit_reqs
-    
+
     @staticmethod
     def _e_no(e_type, parameters):
         """Return an appropriate count for e_type.
@@ -541,8 +555,9 @@ class Rule(object):
         r = parameters.RAND.random()
         if r < .5:                  # check for finished units
             unit_reqs = Rule._get_unit_reqs(buildplan, units, parameters)
-        if r >= .25 and r < .75:    # check enemy's units
-            enemy_has = Rule._get_enemy_has(parameters)
+            # TODO: enemy rules don't work with OpprimoBot
+#         if r >= .25 and r < .75:    # check enemy's units
+#             enemy_has = Rule._get_enemy_has(parameters)
 
         # Generate macros:
         macros = []
@@ -550,7 +565,7 @@ class Rule(object):
         for _ in range(n_macros):
             # Determine the type of Macro to add (buildplan or squad):
             r = parameters.RAND.random()
-            if r < .5:  # buildplan macro
+            if r < .4:  # buildplan macro
                 macros.append(Rule._get_buildplan_macro(buildplan, parameters))
             else:       # squad macro
                 macros.append(Rule._get_squad_macro(buildplan, squads, parameters))
@@ -568,10 +583,10 @@ if __name__ == "__main__":
 
     # Build CASections:
     CAS = ComputeActionsSection.get_new_compute_actions_section(
-            BIS.buildplan.get_buildplan(),
+            BIS.get_buildplan(),
             BIS.squad_init.squads, parameters)
     CAS2 = ComputeActionsSection.get_new_compute_actions_section(
-            BIS2.buildplan.get_buildplan(),
+            BIS2.get_buildplan(),
             BIS2.squad_init.squads, parameters)
 
     # Print 1:

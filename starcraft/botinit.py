@@ -15,6 +15,7 @@ from ga.chromo import uniform_crossover, single_point_crossover
 from starcraft.units import ZergUnits
 from ga.parameters import Parameters
 
+
 class BotInitSection(object):
     """Defines the constructor section of a strategy class."""
 
@@ -28,24 +29,45 @@ class BotInitSection(object):
         return BotInitSection(self.buildplan.clone(), self.squad_init.clone())
 
     def mutate(self, parameters):
-        """Perform mutation on this section."""
+        """Perform mutation on this section.
+        
+        At least one mutation will occur, there is a 50% chance to
+        mutate both the buildplan and the squad init,
+        """
 
-        # Mutate buildplan:
-        self.buildplan.mutate(parameters)
+        # Determine what to mutate:
+        r = parameters.RAND.random()
+        if r < .75:
+            # Mutate buildplan:
+            self.buildplan.mutate(parameters)
 
-        # Correct any issues with SquadInit:
-        self.squad_init.buildplan = self.buildplan.get_buildplan()
-        self.squad_init._correct_squads(parameters)
+            # Correct any issues with SquadInit:
+            self.squad_init.buildplan = self.buildplan.get_buildplan()
+            self.squad_init._correct_squads(parameters)
+        if r > .25:
+            # Mutate SquadInit:
+            self.squad_init.mutate(parameters)
 
-        # Mutate SquadInit:
-        self.squad_init.mutate(parameters)
+
+    def get_buildplan(self):
+        """Return the list of buildings included in this buildplan."""
+
+        return self.buildplan.get_buildplan()
+
+    def get_squads(self):
+        """Return the list of squads in this sections SquadInit subsection."""
+
+        return self.squad_init.squads
 
     def get_bot_init_section_lines(self, class_name="ZergMain"):
         """Return a list of lines representing the constructor of a
             Strategy class in OpprimoBot.
         """
 
-        lines = ["{}::{}() {}".format(class_name, class_name, "\n{"), "\t// Buildingplan subsection:"]
+        lines = ["{}::{}() {}".format(class_name, class_name, "\n{"),
+                 "\t// NOTE: Enusre that you add up to 10 squads to the .h file.",
+                 "\t//  each squad should be named squadX, where X is a number 1-11",
+                 "\t// Buildingplan subsection:"]
         lines.extend(["\t"+line for line in self.buildplan.get_lines()])
         lines.append("\n\t// SquadInit subsection:")
         lines.extend(["\t"+line for line in self.squad_init.get_lines()])
@@ -236,7 +258,7 @@ class BuildPlan(object):
 class SquadInit(object):
     """Contains the list of initial squads to create in Constructor."""
 
-    S_TYPES = ["Squad::OFFENSIVE", "Squad::DEFENSIVE", "Squad::EXPLORATION",
+    S_TYPES = ["Squad::OFFENSIVE", "Squad::DEFENSIVE", "Squad::EXPLORER",
                "Squad::SUPPORT", "Squad::RUSH", "Squad::KITE"]
 
     def __init__(self, squads, buildplan):
@@ -295,9 +317,9 @@ class SquadInit(object):
         if c == 0:   # Change the squad:
             # TODO: Allow more changes?
             self.squads[si].mutate(parameters)
-        elif c == 1 and si != 0:            # Remove the squad:
+        elif c == 1 and si != 0:            # Remove the squad (except main):
             del self.squads[si]
-        else:                   # Add a new squad:
+        elif S < 11:                   # Add a new squad:
             squad_name = "squad{}".format(S)
             self.squads.append(Squad.get_new_squad(name=squad_name, s_id=S,
                                                    buildplan=self.buildplan,
