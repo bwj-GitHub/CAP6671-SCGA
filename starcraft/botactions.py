@@ -74,6 +74,7 @@ class ComputeActionsSection(object):
         
         # Correct stage variables (if necessary):
         self._correct_stage()
+        self._correct_rules(buildplan, squads, parameters)
 
     def get_compute_actions_section_lines(self, class_name="TerranMain"):
         """Return a list of lines representing the computeActions method
@@ -220,7 +221,7 @@ class Rule(object):
                 else:
                     new_macros.append(macro)
             else:  # squad macro
-                if macro[1][1]-1 >= len(squads):  # squad doesn't exist
+                if macro[1][1]-1 >= len(squads)-2:  # squad doesn't exist
                     continue
                 else:
                     new_macros.append(macro)

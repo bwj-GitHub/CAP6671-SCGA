@@ -71,6 +71,19 @@ class BotInitSection(object):
         lines.extend(["\t"+line for line in self.buildplan.get_lines()])
         lines.append("\n\t// SquadInit subsection:")
         lines.extend(["\t"+line for line in self.squad_init.get_lines()])
+        # Ensure scouting squads:
+        lines.append("\tsc1 = new RushSquad(10, \"ScoutingSquad1\", 11);")
+        lines.append("\tsc1->setRequired(false);")
+        lines.append("\tsc2 = new ExplorationSquad(11, \"ScoutingSquad2\", 11);")
+        lines.append("\tsc2->setRequired(false);")
+        lines.append("\tsquads.push_back(sc2);")
+        lines.extend([
+            "\tsc2->addSetup(UnitTypes::Terran_Marine, 2);",
+            "\tsc2->setPriority(1);",
+            "\tsc2->setActivePriority(100);"
+        ])
+
+        # Other stuff:
         lines.extend(["\tnoWorkers = 8;", "\tnoWorkersPerRefinery = 2;", "}"])
         return lines
 
@@ -109,11 +122,11 @@ class BuildPlan(object):
 
     # Only these buildings/Upgrades/Techs will be in the building plan,
     # added in compute actions.
-    TYPES = ["Terran_Barracks", "Terran_Supply_Depot"]  # Extras?
+    TYPES = ["Terran_Barracks", "Terran_Supply_Depot", "Terran_Refinery"]  # Extras?
     TYPES += ["Terran_Barracks", "Terran_Supply_Depot", "Terran_Factory"]  # More Extras?
-    TYPES += list(TerranUnits.BUILDING_REQS.keys())  # 5 - 22
-    TYPES += list(TerranUnits.UPGRADE_REQS.keys())  # 23 - 39
-    TYPES += list(TerranUnits.TECH_REQS.keys())  # 40 - 48
+    TYPES += list(TerranUnits.BUILDING_REQS.keys())  # 6 - 23
+    TYPES += list(TerranUnits.UPGRADE_REQS.keys())  # 24 - 40
+    TYPES += list(TerranUnits.TECH_REQS.keys())  # 41 - 49
 
 
     def __init__(self, priorities, cutoff=24, debug=False):
@@ -135,9 +148,9 @@ class BuildPlan(object):
             u_type = BuildPlan.TYPES[i]
 
             # Determine REQS:
-            if i < 23:  # Check for reqs in BUILDINGS:
+            if i < 24:  # Check for reqs in BUILDINGS:
                 reqs = TerranUnits.BUILDING_REQS[u_type]
-            elif i < 40:  # Check for reqs in UPGRADES:
+            elif i < 41:  # Check for reqs in UPGRADES:
                 reqs = TerranUnits.UPGRADE_REQS[u_type]
             else:
                 reqs = TerranUnits.TECH_REQS[u_type]
@@ -235,8 +248,8 @@ class BuildPlan(object):
     def get_new_buildplan(parameters):
         """Return a new, randomly generated BuildPlan."""
 
-        priorities = [parameters.RAND.randint(8, 14) if i < 2 else
-                      parameters.RAND.randint(16, 28) if i < 5 else
+        priorities = [parameters.RAND.randint(8, 14) if i < 3 else
+                      parameters.RAND.randint(16, 28) if i < 6 else
                       parameters.RAND.randint(10, 60)
                       for i in range(len(BuildPlan.TYPES))
                       ]
