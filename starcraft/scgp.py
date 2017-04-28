@@ -7,6 +7,7 @@ Defines a StarCraft Genetic Programming experiment. A Steady-State
 Genetic Algorithm (GA) is used.
 
 IMPORTANT: Requires OpeningTest, OpprimoBot is not sufficient!
+
 """
 
 
@@ -99,7 +100,7 @@ else:
     init_pop = None
 
 # Run the experiment:
-pops, run_stats = SSGA.experiment(population=init_pop, iterations=20, runs=5)
+pops, run_stats = SSGA.experiment(population=init_pop, iterations=1, runs=1)
 print(run_stats)
 
 # Save population(s):
@@ -107,4 +108,8 @@ if SAVE_POPULATIONS:
     print("Saving population...")
     for i in range(len(pops)):
         save_population(pops[i], dir_="../zPopulations/")
+
+# Create .cpps:
+for i in range(len(pops[0])):
+    pops[0][i].write_lines(output_dir="../zSources/", class_name="ZergMain-{}".format(i))
     
