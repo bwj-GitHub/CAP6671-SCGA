@@ -8,6 +8,8 @@ import os
 import sys
 import subprocess
 import csv
+from shutil import copyfile
+from collections import defaultdict
 from ga.fitness import FitnessFunction
 from chromo import SCStrategyChromo
 
@@ -20,26 +22,28 @@ class ReportBasedFitness(FitnessFunction):
 
         super(ReportBasedFitness, self).__init__(parameters)
         self.output_dir = r"C:\TM\TournamentManager\server"
-        self.game_time_limit = parameters.INIT_TIME_LIMIT
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
 
         FitnessFunction.do_raw_fitness(self, X)
 
-        # Compile, play tournament, parse results files, and chew bubble-gum:
+        # Compile the bot
         path_to_dll = compile_bot(X, self.output_dir)
-        results_file = execute_tournament(path_to_dll)
-        results = parse_results_file(results_file)
-        ## can't find bubble-gum :'(
 
-        # Calculate fitness from results:
-        W = [1, 1 ,1 ,1 ,1]  # TODO: weights for results
-        fitness = W[0] * results["military_victories"]
-        fitness += W[1] * results["economic_victories"]
-        fitness += W[2] * results["relative_destruction"]
-        fitness += W[3] * results["time_to_loss"]
-        fitness += W[4] * results["relative_economy"]
+        # Play a tournament against easy opponents
+        results_easy = defaultdict(lambda: 0)
+        results_file_easy = execute_tournament(path_to_dll, 'easy')
+        results_easy = parse_results_file(results_file_easy)
+
+        # If we won a match against easy opponents, play against a harder opponent
+        results_hard = defaultdict(lambda: 0)
+        if (results_easy['wins'] > 0):
+            results_file_hard = execute_tournament(path_to_dll, 'hard')
+            results_hard = parse_results_file(results_file_hard)
+
+        # Calculate fitness from results:               
+        fitness = 1.0 * (results_easy['wins'] + results_hard['win'] / (results_easy['loses'] + results_hard['loses']))
         X.raw_fitness = fitness
 
 
@@ -115,7 +119,7 @@ def compile_bot(X, output_dir):
         return None
 
 
-def execute_tournament(path_to_dll):
+def execute_tournament(path_to_dll, difficulty):
     """Play several games of starcraft with bot at path_to_dll.
     
     :param path_to_dll: str; path to .dll for StarCraft bot to
@@ -123,11 +127,18 @@ def execute_tournament(path_to_dll):
 
     :return: str; path to tournament statistics directory
     """
-    path_to_settings= r"C:\TM\TournamentManager\server\server_settings.ini"
-    path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script.bat"
     path_to_local_client = r"C:\TM\TournamentManager\client\run_local_client_from_script.bat"
     path_to_vm_client = r"C:\TM\TournamentManager\client\run_vm_client_from_script.bat"
     bot_name = path_to_dll.split("\\")[-1][:-4]
+    
+    if difficulty == 'easy':
+        path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script_easy.bat"
+        path_to_settings = r"C:\TM\TournamentManager\server\server_settings_easy.ini"
+        results_file = bot_name + "Easy.txt"
+    elif difficulty == 'hard':
+        path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script_hard.bat"
+        path_to_settings = r"C:\TM\TournamentManager\server\server_settings_hard.ini"
+        results_file = bot_name + "Hard.txt"
 
     # Create directories of new bot
     path_to_bot = r"C:\TM\TournamentManager\server\bots" + "\\" + bot_name
@@ -147,8 +158,11 @@ def execute_tournament(path_to_dll):
         os.makedirs(path_to_bot_write)
 
     # Move .dll to appropriate location
-    path_to_new_dll = path_to_bot_ai + "\\" + path_to_dll.split("\\")[-1]
-    os.rename(path_to_dll, path_to_new_dll)
+    try:
+        path_to_new_dll = path_to_bot_ai + "\\" + path_to_dll.split("\\")[-1]
+        copyfile(path_to_dll, path_to_new_dll)
+    except:
+        pass
 
     # Edit settings as follows:
     #   Rewrite bot name
@@ -157,8 +171,8 @@ def execute_tournament(path_to_dll):
     with open(path_to_settings, 'r') as file:
         data = file.readlines()
         data[19] = "Bot  " + bot_name + "        Terran  dll  BWAPI_412\n"
-        data[82] = "GamesListFile games" + bot_name + ".txt\n"
-        data[89] = "ResultsFile results" + bot_name + ".txt\n"
+        data[82] = "GamesListFile games" + results_file + "\n"
+        data[89] = "ResultsFile results" + results_file + "\n"
 
     with open(path_to_settings, 'w') as file:
         file.writelines(data)
@@ -180,13 +194,13 @@ def execute_tournament(path_to_dll):
         sys.stdout.flush()        
     output = process.communicate()[0]
 
-    results_file = r"C:\TM\TournamentManager\server" + "\\" + bot_name + ".txt\n"
-    return results_file
+    return r"C:\TM\TournamentManager\server" + "\\" + results_file
 
 
 def parse_results_file(results_file):
     """."""
-    score = 0
+    results = defaultdict(lambda: 0)
+    
     with open(results_file, 'r') as file:
         for i, line in enumerate(file):
             if (i % 2 == 0):
@@ -203,9 +217,11 @@ def parse_results_file(results_file):
             opponentscore = int(stats[1])
 
             if (hostwon == 'true'):
-                score += 1
+                results['wins'] += 1
+            elif (draw == 'true' or opponentcrash == 'true'):
+                results['draws'] += 1
             elif (hostwon == 'false' and draw == 'false' or hostcrash == 'true'):
-                score -= 1
+                results['loses'] += 1
         
-    return score
+    return results
         
