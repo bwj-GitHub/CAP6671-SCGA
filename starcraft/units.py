@@ -65,7 +65,7 @@ class TerranUnits:
 
     UNIT_REQS = {
             "Terran_Marine": ["Terran_Barracks"],
-            "Terran_Firebat": ["Terran_Barracks"],
+            "Terran_Firebat": ["Terran_Barracks", "Terran_Academy"],
             "Terran_Ghost": ["Terran_Barracks", "Terran_Covert_Ops"],
             "Terran_Medic": ["Terran_Baracks", "Terran_Academy"],
             "Terran_Vulture": ["Terran_Factory"],
