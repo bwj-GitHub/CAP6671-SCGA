@@ -21,7 +21,7 @@ from starcraft.chromo import SCStrategyChromo
 from starcraft.fitness import ReportBasedFitness, LineCountFitness
 
 
-DEBUG = True
+DEBUG = False
 SAVE_POPULATIONS = True
 EXP_NUM = 2  # 1 - control, 2 - increase time limit halfway
 
@@ -78,7 +78,7 @@ def load_population(filename, parameters):
 
 # Prepare GA:
 params = Parameters(verbosity=2,
-                    population_size=6,
+                    population_size=10,
                     n_evals = N_EVALS,
                     init_time_limit = INIT_TIME_LIMIT,
                     time_delta_after = TIME_DELTA_AFTER,
@@ -101,16 +101,16 @@ else:
     init_pop = None
 
 # Run the experiment:
-pops, run_stats = SSGA.experiment(population=init_pop, iterations=10, runs=1)
+pops, run_stats = SSGA.experiment(population=init_pop, iterations=15, runs=5)
 print(run_stats)
 
 # Save population(s):
 if SAVE_POPULATIONS:
     print("Saving population...")
     for i in range(len(pops)):
-        save_population(pops[i], dir_="../zPopulations/")
+        save_population(pops[i], dir_="zPopulations/")
 
 # Create .cpps:
 for i in range(len(pops[0])):
-    pops[0][i].write_lines(output_dir="../zSources/", class_name="TerranMain-{}".format(i))
+    pops[0][i].write_lines(output_dir="zSources/", class_name="TerranMain-{}".format(i))
     

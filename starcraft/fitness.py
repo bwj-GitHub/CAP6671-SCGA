@@ -7,11 +7,30 @@ Created on Apr 14, 2017
 import os
 import sys
 import subprocess
+import time
 import csv
 from shutil import copyfile
 from collections import defaultdict
 from ga.fitness import FitnessFunction
-from chromo import SCStrategyChromo
+from starcraft.chromo import SCStrategyChromo
+
+
+class LineCountFitness(FitnessFunction):
+    """A fitness function for testing; goal: maximize number of lines."""
+
+    def __init__(self, parameters):
+        """Set parameters."""
+
+        super(LineCountFitness, self).__init__(parameters)
+        self.output_dir = parameters.DLL_DIR
+
+    def do_raw_fitness(self, X):
+        """Calculate and set the raw fitness score of Chromo X."""
+
+        FitnessFunction.do_raw_fitness(self, X)
+        X.raw_fitness = len(X.get_lines())
+        print("EVAL #{}".format(self.n_evals))
+        self.n_evals += 1
 
 
 class ReportBasedFitness(FitnessFunction):
@@ -21,7 +40,7 @@ class ReportBasedFitness(FitnessFunction):
         """Set parameters."""
 
         super(ReportBasedFitness, self).__init__(parameters)
-        self.output_dir = r"C:\TM\TournamentManager\server"
+        self.output_dir = r"C:\TM\SCGABot\SCProjects\Release" + "\\"
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
@@ -31,10 +50,17 @@ class ReportBasedFitness(FitnessFunction):
         # Compile the bot
         path_to_dll = compile_bot(X, self.output_dir)
 
+        # If compilation failed, fitness is 0
+        if (not path_to_dll):
+            X.raw_fitness = 0
+            return
+            
         # Play a tournament against easy opponents
         results_easy = defaultdict(lambda: 0)
         results_file_easy = execute_tournament(path_to_dll, 'easy')
         results_easy = parse_results_file(results_file_easy)
+
+        time.sleep(5)
 
         # If we won a match against easy opponents, play against a harder opponent
         results_hard = defaultdict(lambda: 0)
@@ -64,10 +90,10 @@ def compile_bot(X, output_dir):
     :return: str; the path to .dll, if build was successful, else None.
     """
     # Add .cpp to project
-    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Commander\Zerg", "ZergMain")
+    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Commander\Terran" + "\\", "TerranMain")
 
     # Create .cpp file storage for later
-    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Strategies", "ZergMain" + "Bot{}".format(X.id))
+    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Strategies" + "\\", "TerranMain" + "Bot-{}".format(X.id))
 	
     # Build settings
     msbuild = r"C:\Program Files (x86)\MSBuild\12.0\Bin\MSBuild.exe"      
@@ -83,7 +109,7 @@ def compile_bot(X, output_dir):
     # Specify project to build
     command.append(project)
     # Specify build type
-    command.append(rebuild)
+    #command.append(rebuild)
     # Specify target architecture
     command.append(win32)
     # Specify relase type
@@ -127,6 +153,7 @@ def execute_tournament(path_to_dll, difficulty):
 
     :return: str; path to tournament statistics directory
     """
+    print(path_to_dll)
     path_to_local_client = r"C:\TM\TournamentManager\client\run_local_client_from_script.bat"
     path_to_vm_client = r"C:\TM\TournamentManager\client\run_vm_client_from_script.bat"
     bot_name = path_to_dll.split("\\")[-1][:-4]
@@ -194,7 +221,7 @@ def execute_tournament(path_to_dll, difficulty):
         sys.stdout.flush()        
     output = process.communicate()[0]
 
-    return r"C:\TM\TournamentManager\server" + "\\" + results_file
+    return r"C:\TM\TournamentManager\server" + "\\results" + results_file
 
 
 def parse_results_file(results_file):
