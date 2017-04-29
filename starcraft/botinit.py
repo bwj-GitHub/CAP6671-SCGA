@@ -125,8 +125,8 @@ class BuildPlan(object):
     TYPES = ["Terran_Barracks", "Terran_Supply_Depot", "Terran_Refinery"]  # Extras?
     TYPES += ["Terran_Barracks", "Terran_Supply_Depot", "Terran_Factory"]  # More Extras?
     TYPES += list(TerranUnits.BUILDING_REQS.keys())  # 6 - 23
-    TYPES += list(TerranUnits.UPGRADE_REQS.keys())  # 24 - 40
-    TYPES += list(TerranUnits.TECH_REQS.keys())  # 41 - 49
+    TYPES += list(TerranUnits.UPGRADE_REQS.keys())  # 24 - 39
+    TYPES += list(TerranUnits.TECH_REQS.keys())  # 40 - 49
 
 
     def __init__(self, priorities, cutoff=24, debug=False):
@@ -150,7 +150,7 @@ class BuildPlan(object):
             # Determine REQS:
             if i < 24:  # Check for reqs in BUILDINGS:
                 reqs = TerranUnits.BUILDING_REQS[u_type]
-            elif i < 41:  # Check for reqs in UPGRADES:
+            elif i < 40:  # Check for reqs in UPGRADES:
                 reqs = TerranUnits.UPGRADE_REQS[u_type]
             else:
                 reqs = TerranUnits.TECH_REQS[u_type]

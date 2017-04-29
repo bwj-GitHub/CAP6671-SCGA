@@ -34,7 +34,6 @@ class TerranUnits:
     UPGRADE_REQS = {
             "Terran_Infantry_Weapons": ["Terran_Engineering_Bay"],
             "Terran_Infantry_Armor": ["Terran_Engineering_Bay"],
-            "Stim_Packs": ["Terran_Academy"],
             "U_238_Shells": ["Terran_Academy"],
             "Caduceus_Reactor": ["Terran_Academy"],
             "Terran_Vehicle_Plating": ["Terran_Armory"],
@@ -58,6 +57,7 @@ class TerranUnits:
             "Spider_Mines": ["Terran_Machine_Shop"],
             "EMP_Shockwave": ["Terran_Science_Facility"],
             "Irradiate": ["Terran_Science_Facility"],
+            "Stim_Packs": ["Terran_Academy"],
             "Yamato_Gun": ["Terran_Physics_Lab"],
             "Lockdown": ["Terran_Physics_Lab"],
             "Personnel_Cloaking": ["Terran_Physics_Lab"]
