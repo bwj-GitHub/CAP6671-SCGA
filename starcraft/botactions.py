@@ -476,6 +476,7 @@ class Rule(object):
         """
 
         # Determine what squad this macro will affect:
+        MAX_SIZE = 36
         squad_i = parameters.RAND.randint(0, len(squads)-1)
 
         # Determine what kind of macro this will be:
@@ -485,7 +486,7 @@ class Rule(object):
             s_units, s_counts = zip(*squads[squad_i].units)
             u = parameters.RAND.randint(0, len(s_units)-1)  # choose unit
             d_count = parameters.RAND.randint(1, s_counts[u])
-            m_parameters = ("{}->removeSetup({}, {});",
+            m_parameters = ("if (squads[{}].maxSize() > {}) {}->removeSetup({}, {});".format(squad_i, d_count, "{}", "{}", "{}"),
                             TerranUnits.get_full_name(s_units[u]), d_count)
 
         elif m_type == 2:  # addSetup()
@@ -496,7 +497,7 @@ class Rule(object):
                 u_count = 1 + parameters.RAND.randint(0, 9) % 8
             else:
                 u_count = 2 * parameters.RAND.randint(1, 12)
-            m_parameters = ("{}->addSetup({}, {});",
+            m_parameters = ("if (squads[{}].maxSize() < {}) {}->addSetup({}, {});".format(squad_i, MAX_SIZE, "{}", "{}", "{}"),
                             TerranUnits.get_full_name(u_type), u_count)
 
         elif m_type == 3:   # setBuildup()
