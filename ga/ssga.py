@@ -6,7 +6,9 @@ Created on Apr 13, 2017
 
 
 import statistics
-
+import time
+import pickle
+import os
 
 class SteadyStateGA(object):
     """Brief descript. of class."""
@@ -68,6 +70,13 @@ class SteadyStateGA(object):
         prev_std_fitness = statistics.pstdev([X.raw_fitness for X in population])
 
         for i in range(iterations):
+            self.save_population(population, (i+1), dir_="zPopulations/")
+            for j in range(len(population)):
+                sources_path = "zSources/Pop-{}/".format(i)
+                if not os.path.exists(sources_path):
+                    os.makedirs(sources_path)
+                population[j].write_lines(output_dir=sources_path, class_name="TerranMain-{}".format(j))
+                        
             if self.verbosity > 0:
                 print("Iteration {}:".format(i))
             # Select 2 parents and replace them with the 2 best individuals
@@ -145,3 +154,15 @@ class SteadyStateGA(object):
 
         return run_populations, run_stats
 
+
+    def save_population(self, population, gen, dir_):
+        """Pickle the given population to a file in dir_.
+
+        A unique name for the file is created, based on the current
+        time.
+        """
+        print("Saving pop")
+        timestamp = "{:.0f}".format(time.time())
+        filename = dir_ + "population_{}.p".format(gen)
+        with open(filename, "wb") as fp:
+            pickle.dump(population, fp)

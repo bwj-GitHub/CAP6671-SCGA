@@ -27,7 +27,11 @@ EXP_NUM = 2  # 1 - control, 2 - increase time limit halfway
 
 # EXP Parameters:
 BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
-DLL_DIR = "./"  # TODO: Change this!
+DLL_OUT_DIR = r"C:\TM\SCGABot\SCProjects\Release" + "\\"
+BOT_SRC_DIR = r"C:\TM\SCGABot\SCProjects\OpprimoBot\source" # The path to the source files of opprimobot
+MS_BUILD = r"C:\Program Files (x86)\MSBuild\12.0\Bin\MSBuild.exe" # The path to the msbuild executable
+BOT_SLN = r"C:\TM\SCGABot\SCProjects\SCProjects.sln" # The path to the solution (.sln) of opprimobot
+TM_DIR = r"C:\TM\TournamentManager"
 
 # Each of these experiments requires ~384 minutes to evaluate sequentially;
 #  each evaluation is assumed to be only a single game.
@@ -79,11 +83,16 @@ def load_population(filename, parameters):
 # Prepare GA:
 params = Parameters(verbosity=2,
                     population_size=10,
-                    n_evals = N_EVALS,
-                    init_time_limit = INIT_TIME_LIMIT,
-                    time_delta_after = TIME_DELTA_AFTER,
-                    time_delta = TIME_DELTA,
-                    max_problem=False
+                    n_evals = None,
+                    init_time_limit = None,
+                    time_delta_after = None,
+                    time_delta = None,
+                    max_problem=True,
+		    dll_out_dir=DLL_OUT_DIR,
+		    bot_src_dir=BOT_SRC_DIR,
+		    ms_build=MS_BUILD,
+		    bot_sln=BOT_SLN,
+		    tm_dir=TM_DIR
                     )
 if DEBUG:
     problem = LineCountFitness(params)  # dummy fitness function for testing
@@ -101,16 +110,16 @@ else:
     init_pop = None
 
 # Run the experiment:
-pops, run_stats = SSGA.experiment(population=init_pop, iterations=15, runs=5)
+pops, run_stats = SSGA.experiment(population=init_pop, iterations=15, runs=1)
 print(run_stats)
 
 # Save population(s):
-if SAVE_POPULATIONS:
-    print("Saving population...")
-    for i in range(len(pops)):
-        save_population(pops[i], dir_="zPopulations/")
+#if SAVE_POPULATIONS:
+#    print("Saving population...")
+#    for i in range(len(pops)):
+#        save_population(pops[i], dir_="zPopulations/")
 
 # Create .cpps:
-for i in range(len(pops[0])):
-    pops[0][i].write_lines(output_dir="zSources/", class_name="TerranMain-{}".format(i))
+#or i in range(len(pops[0])):
+#    pops[0][i].write_lines(output_dir="zSources/", class_name="TerranMain-{}".format(i))
     

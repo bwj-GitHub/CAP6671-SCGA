@@ -30,7 +30,11 @@ class Parameters(object):
 
         # StarCraft. Parameters (TODO: move these to subclass?):
         self.BUILDPLAN_CUTOFF = 32  # Don't include items in buildplan with Supply > than this
-        self.DLL_DIR = "./"
+        self.DLL_OUT_DIR = kwargs.get("dll_out_dir", "./")
+        self.BOT_SRC_DIR = kwargs.get("bot_src_dir","./")
+        self.MS_BUILD = kwargs.get("ms_build", "./")
+        self.BOT_SLN = kwargs.get("bot_sln", "./")
+        self.TM_DIR = kwargs.get("tm_dir", "./")
 
         self.INIT_TIME_LIMIT = kwargs.get("init_time_limit", 480)  # default: 8m
         self.TIME_DELTA_AFTER = kwargs.get("time_delta_after", 24)  # default 24 evals

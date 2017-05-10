@@ -22,7 +22,6 @@ class LineCountFitness(FitnessFunction):
         """Set parameters."""
 
         super(LineCountFitness, self).__init__(parameters)
-        self.output_dir = parameters.DLL_DIR
 
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
@@ -40,40 +39,61 @@ class ReportBasedFitness(FitnessFunction):
         """Set parameters."""
 
         super(ReportBasedFitness, self).__init__(parameters)
-        self.output_dir = r"C:\TM\SCGABot\SCProjects\Release" + "\\"
+        self.dll_out_dir = parameters.DLL_OUT_DIR
+        self.bot_src_dir = parameters.BOT_SRC_DIR
+        self.ms_build = parameters.MS_BUILD
+        self.bot_sln = parameters.BOT_SLN
+        self.tm_dir = parameters.TM_DIR
 
+		
     def do_raw_fitness(self, X):
         """Calculate and set the raw fitness score of Chromo X."""
 
         FitnessFunction.do_raw_fitness(self, X)
 
         # Compile the bot
-        path_to_dll = compile_bot(X, self.output_dir)
+        path_to_dll = compile_bot(X,
+                                  self.dll_out_dir,
+                                  self.bot_src_dir,
+                                  self.ms_build,
+                                  self.bot_sln)
 
-        # If compilation failed, fitness is 0
+        # If compilation failed, try one more time
         if (not path_to_dll):
-            X.raw_fitness = 0
-            return
+            path_to_dll = compile_bot(X,
+                                      self.dll_out_dir,
+                                      self.bot_src_dir,
+                                      self.ms_build,
+                                      self.bot_sln)
+
+            # If compilation still failed, fitness is 0
+            if (not path_to_dll):
+                X.raw_fitness = 0
+                return
+
+        fitness = 0
             
         # Play a tournament against easy opponents
         results_easy = defaultdict(lambda: 0)
-        results_file_easy = execute_tournament(path_to_dll, 'easy')
+        results_file_easy = execute_tournament(path_to_dll, self.tm_dir, 'easy')
         results_easy = parse_results_file(results_file_easy)
 
-        time.sleep(5)
+        time.sleep(15)
 
         # If we won a match against easy opponents, play against a harder opponent
         results_hard = defaultdict(lambda: 0)
         if (results_easy['wins'] > 0):
-            results_file_hard = execute_tournament(path_to_dll, 'hard')
+            # Fitness bonus for winning
+            fitness += 10000
+            results_file_hard = execute_tournament(path_to_dll, self.tm_dir, 'hard')
             results_hard = parse_results_file(results_file_hard)
 
         # Calculate fitness from results:               
-        fitness = 1.0 * (results_easy['wins'] + results_hard['win'] / (results_easy['loses'] + results_hard['loses']))
+        fitness += results_easy['relative_score'] + results_hard['relative_score']
         X.raw_fitness = fitness
 
 
-def compile_bot(X, output_dir):
+def compile_bot(X, dll_out_dir, bot_src_dir, ms_build, bot_sln):
     """Compile OpprimoBot with strategy represented by X, output .dll
         to output_dir.
 
@@ -90,18 +110,15 @@ def compile_bot(X, output_dir):
     :return: str; the path to .dll, if build was successful, else None.
     """
     # Add .cpp to project
-    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Commander\Terran" + "\\", "TerranMain")
+    X.write_lines(bot_src_dir + r"\Commander\Terran" + "\\", "TerranMain")
 
-    # Create .cpp file storage for later
-    X.write_lines(r"C:\TM\SCGABot\SCProjects\OpprimoBot\Source\Strategies" + "\\", "TerranMain" + "Bot-{}".format(X.id))
-	
     # Build settings
-    msbuild = r"C:\Program Files (x86)\MSBuild\12.0\Bin\MSBuild.exe"      
-    project = r"C:\TM\SCGABot\SCProjects\SCProjects.sln"
+    msbuild = ms_build   
+    project = bot_sln
     rebuild = '/t:Rebuild'
     release = '/p:Configuration=Release'
     win32 = '/p:Platform=Win32'
-    output = '/p:OutDir=' + output_dir
+    output = '/p:OutDir=' + dll_out_dir
     name = "/p:TargetName=Bot{}".format(X.id)
 
     # Specify MSBuild path
@@ -139,13 +156,13 @@ def compile_bot(X, output_dir):
     
     # Build successful    
     if (exitCode == 0):
-         return output_dir + "Bot{}.dll".format(X.id)
+         return dll_out_dir + "Bot{}.dll".format(X.id)
     # Build failed
     else:
         return None
 
 
-def execute_tournament(path_to_dll, difficulty):
+def execute_tournament(path_to_dll, tm_dir, difficulty):
     """Play several games of starcraft with bot at path_to_dll.
     
     :param path_to_dll: str; path to .dll for StarCraft bot to
@@ -153,22 +170,21 @@ def execute_tournament(path_to_dll, difficulty):
 
     :return: str; path to tournament statistics directory
     """
-    print(path_to_dll)
-    path_to_local_client = r"C:\TM\TournamentManager\client\run_local_client_from_script.bat"
-    path_to_vm_client = r"C:\TM\TournamentManager\client\run_vm_client_from_script.bat"
+    path_to_local_client = tm_dir + r"\client\run_local_client_from_script.bat"
+    path_to_vm_client = tm_dir + r"\client\run_vm_client_from_script.bat"
     bot_name = path_to_dll.split("\\")[-1][:-4]
     
     if difficulty == 'easy':
-        path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script_easy.bat"
-        path_to_settings = r"C:\TM\TournamentManager\server\server_settings_easy.ini"
+        path_to_server = tm_dir + r"\server\run_server_from_script_easy.bat"
+        path_to_settings = tm_dir + r"\server\server_settings_easy.ini"
         results_file = bot_name + "Easy.txt"
     elif difficulty == 'hard':
-        path_to_server = r"C:\TM\TournamentManager\server\run_server_from_script_hard.bat"
-        path_to_settings = r"C:\TM\TournamentManager\server\server_settings_hard.ini"
+        path_to_server = tm_dir + r"\server\run_server_from_script_hard.bat"
+        path_to_settings = tm_dir + r"\server\server_settings_hard.ini"
         results_file = bot_name + "Hard.txt"
 
     # Create directories of new bot
-    path_to_bot = r"C:\TM\TournamentManager\server\bots" + "\\" + bot_name
+    path_to_bot = tm_dir + r"\server\bots" + "\\" + bot_name
     if not os.path.exists(path_to_bot):
         os.makedirs(path_to_bot)
 
@@ -221,34 +237,39 @@ def execute_tournament(path_to_dll, difficulty):
         sys.stdout.flush()        
     output = process.communicate()[0]
 
-    return r"C:\TM\TournamentManager\server" + "\\results" + results_file
+    return tm_dir + r"\server\results" + results_file
 
 
 def parse_results_file(results_file):
     """."""
+    print("Parsing results: " + results_file)
     results = defaultdict(lambda: 0)
     
     with open(results_file, 'r') as file:
+        prev_line = []
         for i, line in enumerate(file):
-            if (i % 2 == 0):
-                continue
-            stats = line.split()
-            home = stats[2]
-            away = stats[3]
-            game_map = stats[4]
-            hostwon = stats[5]
-            hostcrash = stats[6]
-            opponentcrash = stats[7]
-            draw = stats[8]
-            hostscore = int(stats[9])
-            opponentscore = int(stats[1])
+            if ((i+1) % 2 == 0):
+                stats = line.split()
+                home = stats[2]
+                away = stats[3]
+                game_map = stats[4]
+                hostwon = stats[5]
+                hostcrash = stats[6]
+                opponentcrash = stats[7]
+                draw = stats[8]
+                hostscore = int(stats[9])
+                opponentscore = int(stats[10])
 
-            if (hostwon == 'true'):
-                results['wins'] += 1
-            elif (draw == 'true' or opponentcrash == 'true'):
-                results['draws'] += 1
-            elif (hostwon == 'false' and draw == 'false' or hostcrash == 'true'):
-                results['loses'] += 1
+                results['relative_score'] += hostscore - opponentscore
+
+                if (hostwon == 'true' and prev_line.split()[5] == 'true'):
+                    results['wins'] += 1
+                elif (draw == 'true' or opponentcrash == 'true'):
+                    results['draws'] += 1
+                elif (hostwon == 'false' and draw == 'false' or hostcrash == 'true'):
+                    results['loses'] += 1
+            else:
+                prev_line = line
         
     return results
         
