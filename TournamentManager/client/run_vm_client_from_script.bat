@@ -1,0 +1,1 @@
+"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" guestcontrol "Win-10 Starcraft" --username starcraftbot --password starcraft run --exe C:\TM\TournamentManager\client\run_client_from_host.bat
